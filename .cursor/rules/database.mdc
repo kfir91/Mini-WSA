@@ -1,0 +1,23 @@
+---
+description: Database design, queries, migrations, and transaction boundaries
+globs: **/*.sql,**/migration/**,**/migrations/**,**/db/**,**/repository/**,**/entity/**
+alwaysApply: false
+---
+
+# Database and Transactions
+
+Treat the database as a first-class architectural component.
+
+## Design
+Consider: primary keys, foreign keys, unique constraints, NOT NULL, indexes, query performance, pagination, locking, concurrency, connection pool sizing, data retention, large-table growth.
+- Use DB constraints for data integrity.
+- Use schema migrations. Never rely on manual production schema changes.
+- Watch for N+1 queries. Always consider query complexity and index usage.
+- Do not load large datasets into memory unnecessarily.
+
+## Transactions
+- A transaction boundary should represent a meaningful business operation (e.g. `createOrder` atomic).
+- Place transactions at the Service level.
+- Do not keep a DB transaction open while doing slow external calls unless there is a strong reason.
+- Be careful with `DB transaction -> External API -> Kafka`.
+- When DB state and event publication must be reliable together, use the Outbox Pattern.

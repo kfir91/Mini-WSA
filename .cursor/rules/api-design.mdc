@@ -1,0 +1,33 @@
+---
+description: API design, DTOs, validation, and error handling conventions
+globs: **/controller/**,**/api/**,**/dto/**,**/exception/**
+alwaysApply: false
+---
+
+# API Design
+
+## DTOs
+- Never expose persistence entities through APIs.
+- Use dedicated contracts: `CreateRequest`, `UpdateRequest`, `Response`, `SummaryResponse`.
+- DTOs represent the API contract, not the DB schema. Map explicitly; do not blindly expose every field.
+
+## API Quality
+APIs must be consistent, predictable, RESTful where appropriate, validated, documented, and backward compatible when required.
+Consider: pagination, filtering, sorting, idempotency, versioning, rate limiting.
+**Never return unlimited datasets.**
+
+## Validation (right check at the right layer)
+- API layer: structural (required, format, range).
+- Business layer: is the operation allowed? (permissions, state transitions)
+- Database: integrity (unique, FK, NOT NULL).
+- Do not duplicate the exact same validation in every layer.
+
+## Error Handling
+Use centralized, consistent handling. Categories: validation, business, authentication, authorization, not found, conflict, external service failure, infrastructure failure, unexpected.
+
+Consistent structure:
+```json
+{ "code": "USER_NOT_FOUND", "message": "User was not found", "correlationId": "..." }
+```
+
+Never expose to clients: stack traces, internal class names, DB details, secrets, infrastructure details.

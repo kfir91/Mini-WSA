@@ -1,0 +1,23 @@
+---
+description: Testing strategy and conventions for unit, integration, and API tests
+globs: **/test/**,**/tests/**,**/*Test.java,**/*IT.java,**/*.spec.ts,**/*.test.ts
+alwaysApply: false
+---
+
+# Testing
+
+Testing follows the architecture.
+
+## Unit tests
+Services, managers, business logic, complex utilities.
+
+## Integration tests
+Repository + real database, external integrations, Kafka/message processing, security boundaries.
+
+## API tests
+HTTP status, request validation, response structure, authorization, error handling.
+
+## Principles
+- Do not mock everything. Use real infrastructure in integration tests where it gives meaningful confidence.
+- Verify behavior, not implementation details.
+- Cover failure paths and idempotency, not only the happy path.
