@@ -8,6 +8,8 @@ public class DefineAlertRequest {
 
     private Long configId;
 
+    private String category;
+
     @NotBlank
     private String metric;
 
@@ -24,6 +26,14 @@ public class DefineAlertRequest {
 
     public void setConfigId(Long configId) {
         this.configId = configId;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
     }
 
     public String getMetric() {

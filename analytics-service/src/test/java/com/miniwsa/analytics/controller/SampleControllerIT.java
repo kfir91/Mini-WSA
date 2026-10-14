@@ -16,7 +16,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+        "spring.datasource.url=jdbc:h2:mem:miniwsa;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH",
+        "spring.datasource.username=sa",
+        "spring.datasource.password=",
+        "spring.datasource.driver-class-name=org.h2.Driver"
+})
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class SampleControllerIT {
@@ -39,11 +44,11 @@ class SampleControllerIT {
     void filtersByCategoryAndPaginates() throws Exception {
         mockMvc.perform(get("/v1/events/samples")
                         .param("category", "INJECTION")
-                        .param("page", "0")
-                        .param("size", "1"))
+                        .param("limit", "1")
+                        .param("offset", "0"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.total").value(2))
-                .andExpect(jsonPath("$.size").value(1))
+                .andExpect(jsonPath("$.limit").value(1))
                 .andExpect(jsonPath("$.items[0].category").value("INJECTION"))
                 .andExpect(jsonPath("$.items[0].attackType").exists())
                 .andExpect(jsonPath("$.items[0].threatScore").exists())

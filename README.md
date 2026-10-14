@@ -116,24 +116,24 @@ A **201** means Kafka accepted the message, not that PostgreSQL already stored i
 
 ```powershell
 Invoke-RestMethod http://localhost:8080/v1/stats/summary?configId=14227
-Invoke-RestMethod "http://localhost:8080/v1/events/samples?category=INJECTION&page=0&size=20"
+Invoke-RestMethod "http://localhost:8080/v1/events/samples?category=INJECTION&limit=20&offset=0"
 Invoke-RestMethod "http://localhost:8080/v1/stats/timeseries?interval=5m&configId=14227"
 ```
 
-Generator:
+Generator (`sql`/`xss` are same-IP + same-path bursts; `mixed` alternates random traffic with bursts):
 
 ```powershell
-mvn -pl generator -DskipTests exec:java -Dexec.args="--base-url http://localhost:8081 --count 20 --rate 5 --wave sql --config-id 14227"
+.\generator\generate.ps1 -Count 20 -Rate 5 -Wave sql -BurstSize 10
 ```
 
-Alerts (in-memory; lost on restart):
+Alerts (in-memory; lost on restart). `GET /v1/alerts/evaluate` without `alertId` checks every defined rule:
 
 ```powershell
-$alert = Invoke-RestMethod -Method Post -Uri http://localhost:8080/v1/alerts/define -ContentType application/json -Body '{"configId":14227,"metric":"event_count","window":"5m","threshold":10}'
-Invoke-RestMethod "http://localhost:8080/v1/alerts/evaluate?alertId=$($alert.id)"
+$alert = Invoke-RestMethod -Method Post -Uri http://localhost:8080/v1/alerts/define -ContentType application/json -Body '{"configId":14227,"category":"INJECTION","metric":"event_count","window":"5m","threshold":10}'
+Invoke-RestMethod http://localhost:8080/v1/alerts/evaluate
 ```
 
-Analytics APIs are limited to **100 requests per IP per minute** (429 when exceeded).
+Stats and samples APIs are limited to **100 requests per IP per minute** (429 when exceeded). Ingest and alerts are not rate limited.
 
 ## Storage
 

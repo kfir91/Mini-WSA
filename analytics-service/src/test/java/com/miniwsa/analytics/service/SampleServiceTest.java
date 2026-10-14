@@ -35,23 +35,23 @@ class SampleServiceTest {
     }
 
     @Test
-    void defaultsPageAndSize() {
+    void defaultsLimitAndOffset() {
         when(repository.findAll(any(Specification.class), any(Pageable.class)))
                 .thenAnswer(invocation -> new PageImpl<>(List.of(), invocation.getArgument(1), 0));
         SamplePageResponse response = sampleService.samples(null, null, null, null, null, null, null, null);
         ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
         verify(repository).findAll(any(Specification.class), captor.capture());
-        assertEquals(0, captor.getValue().getPageNumber());
+        assertEquals(0, captor.getValue().getOffset());
         assertEquals(20, captor.getValue().getPageSize());
-        assertEquals(0, response.getPage());
-        assertEquals(20, response.getSize());
+        assertEquals(0, response.getOffset());
+        assertEquals(20, response.getLimit());
     }
 
     @Test
-    void capsPageSizeAt100() {
+    void capsLimitAt100() {
         when(repository.findAll(any(Specification.class), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(), org.springframework.data.domain.PageRequest.of(0, 100), 0));
-        sampleService.samples(null, null, null, null, null, null, 0, 500);
+        sampleService.samples(null, null, null, null, null, null, 500, 0);
         ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
         verify(repository).findAll(any(Specification.class), captor.capture());
         assertEquals(100, captor.getValue().getPageSize());
@@ -85,7 +85,7 @@ class SampleServiceTest {
         entity.setThreatScore(75);
         when(repository.findAll(any(Specification.class), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(entity)));
-        SamplePageResponse response = sampleService.samples(1L, null, null, "INJECTION", "DENY", 50, 0, 20);
+        SamplePageResponse response = sampleService.samples(1L, null, null, "INJECTION", "DENY", 50, 20, 0);
         assertEquals(1, response.getItems().size());
         assertEquals("evt-1", response.getItems().get(0).getEventId());
         assertEquals(75, response.getItems().get(0).getThreatScore());

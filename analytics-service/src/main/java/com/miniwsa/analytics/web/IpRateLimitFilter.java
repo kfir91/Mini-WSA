@@ -29,7 +29,7 @@ public class IpRateLimitFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        return path.startsWith("/actuator");
+        return !path.startsWith("/v1/stats") && !path.startsWith("/v1/events/samples");
     }
 
     @Override
@@ -43,7 +43,7 @@ public class IpRateLimitFilter extends OncePerRequestFilter {
         }
         response.setStatus(429);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.getWriter().write("{\"code\":\"RATE_LIMITED\",\"message\":\"Too many requests\"}");
+        response.getWriter().write("{\"code\":\"RATE_LIMITED\",\"message\":\"Too many requests\",\"details\":[]}");
     }
 
     private Bucket newBucket() {

@@ -26,8 +26,8 @@ public class SampleController {
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String action,
             @RequestParam(required = false) Integer minThreatScore,
-            @RequestParam(required = false) Integer page,
-            @RequestParam(required = false) Integer size) {
-        return sampleService.samples(configId, from, to, category, action, minThreatScore, page, size);
+            @RequestParam(required = false) Integer limit,
+            @RequestParam(required = false) Integer offset) {
+        return sampleService.samples(configId, from, to, category, action, minThreatScore, limit, offset);
     }
 }

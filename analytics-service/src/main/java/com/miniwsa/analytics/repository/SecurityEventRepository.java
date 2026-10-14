@@ -16,9 +16,11 @@ public interface SecurityEventRepository extends JpaRepository<SecurityEventEnti
     @Query("""
             SELECT COUNT(e) FROM SecurityEventEntity e
             WHERE (:configId IS NULL OR e.configId = :configId)
+              AND (:category IS NULL OR e.category = :category)
               AND e.eventTimestamp >= :since
             """)
-    long countSince(@Param("configId") Long configId, @Param("since") Instant since);
+    long countSince(
+            @Param("configId") Long configId, @Param("category") String category, @Param("since") Instant since);
 
     @Query("""
             SELECT COUNT(DISTINCT e.clientIp) FROM SecurityEventEntity e

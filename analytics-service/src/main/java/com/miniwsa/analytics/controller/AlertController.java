@@ -1,7 +1,7 @@
 package com.miniwsa.analytics.controller;
 
-import com.miniwsa.analytics.alert.AlertDefinition;
 import com.miniwsa.analytics.dto.request.DefineAlertRequest;
+import com.miniwsa.analytics.dto.response.AlertDefinitionResponse;
 import com.miniwsa.analytics.dto.response.AlertEvaluationResponse;
 import com.miniwsa.analytics.service.AlertService;
 import jakarta.validation.Valid;
@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 public class AlertController {
@@ -24,12 +26,15 @@ public class AlertController {
 
     @PostMapping("/v1/alerts/define")
     @ResponseStatus(HttpStatus.CREATED)
-    public AlertDefinition define(@Valid @RequestBody DefineAlertRequest request) {
+    public AlertDefinitionResponse define(@Valid @RequestBody DefineAlertRequest request) {
         return alertService.define(request);
     }
 
     @GetMapping("/v1/alerts/evaluate")
-    public AlertEvaluationResponse evaluate(@RequestParam String alertId) {
-        return alertService.evaluate(alertId);
+    public List<AlertEvaluationResponse> evaluate(@RequestParam(required = false) String alertId) {
+        if (alertId == null || alertId.isBlank()) {
+            return alertService.evaluateAll();
+        }
+        return List.of(alertService.evaluate(alertId));
     }
 }

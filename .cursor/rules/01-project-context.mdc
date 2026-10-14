@@ -8,7 +8,7 @@ alwaysApply: true
 Mini WSA is a local security analytics platform: ingest DLRs, enrich them, store them, and serve SOC analytics APIs.
 
 ## Stack
-- Language / framework: Java 21 / Spring Boot 3
+- Language / framework: Java 17 / Spring Boot 3
 - Build tool: Maven (multi-module)
 - Database: PostgreSQL 16 + Flyway (analytics-service only)
 - Messaging: Kafka 3.x KRaft (`security-events.raw`, `security-events.dlq`) — topic names from config, not Java constants
@@ -34,7 +34,7 @@ Mini WSA is a local security analytics platform: ingest DLRs, enrich them, store
 ## Commands
 - Build: `mvn test`
 - Run tests: `mvn test`
-- Run locally: `docker compose up --build` (after S11). Until then: Compose for Postgres+Kafka only; `mvn spring-boot:run` per app.
+- Run locally: Compose for Postgres+Kafka; `mvn spring-boot:run` per app (or `java -jar` after `mvn package`).
 
 ## Engineering principles
 Keep it simple. OOP/SOLID. Separate HTTP, business logic, persistence, messaging, and config. No hardcoded URLs, ports, topics, timeouts, or limits — use `application.yml` and env vars. Never commit secrets (`.env` gitignored; `.env.example` placeholders only). One owner per concern. Validate inputs; do not swallow exceptions. Idempotent `event_id`; Kafka retries + DLQ. Test meaningful behavior only.

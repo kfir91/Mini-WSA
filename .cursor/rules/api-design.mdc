@@ -27,7 +27,7 @@ Use centralized, consistent handling. Categories: validation, business, authenti
 
 Consistent structure:
 ```json
-{ "code": "USER_NOT_FOUND", "message": "User was not found", "correlationId": "..." }
+{ "code": "USER_NOT_FOUND", "message": "User was not found", "details": [] }
 ```
 
 Never expose to clients: stack traces, internal class names, DB details, secrets, infrastructure details.

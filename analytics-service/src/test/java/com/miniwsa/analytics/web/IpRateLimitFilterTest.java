@@ -32,6 +32,22 @@ class IpRateLimitFilterTest {
     }
 
     @Test
+    void doesNotLimitAlerts() throws Exception {
+        IpRateLimitFilter filter = new IpRateLimitFilter(1);
+        FilterChain chain = mock(FilterChain.class);
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/v1/alerts/evaluate");
+        request.setRemoteAddr("203.0.113.9");
+        for (int i = 0; i < 3; i++) {
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            filter.doFilter(request, response, chain);
+            assertEquals(200, response.getStatus() == 200 || response.getStatus() == 0 ? 200 : response.getStatus());
+        }
+        verify(chain, times(3)).doFilter(
+                org.mockito.ArgumentMatchers.any(HttpServletRequest.class),
+                org.mockito.ArgumentMatchers.any(HttpServletResponse.class));
+    }
+
+    @Test
     void usesFirstForwardedForHop() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.addHeader("X-Forwarded-For", "198.51.100.7, 10.0.0.1");
