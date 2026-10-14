@@ -65,6 +65,21 @@ public interface SecurityEventRepository extends JpaRepository<SecurityEventEnti
             """, nativeQuery = true)
     List<PathAggregate> topPaths(@Param("configId") Long configId, @Param("fromTs") Instant fromTs, @Param("toTs") Instant toTs);
 
+    @Query(value = """
+            SELECT date_bin(CAST(:bucket AS interval), e.event_timestamp, TIMESTAMP 'epoch') AS bucket, COUNT(*) AS count
+            FROM security_events e
+            WHERE (:configId IS NULL OR e.config_id = :configId)
+              AND (:fromTs IS NULL OR e.event_timestamp >= :fromTs)
+              AND (:toTs IS NULL OR e.event_timestamp <= :toTs)
+            GROUP BY 1
+            ORDER BY 1
+            """, nativeQuery = true)
+    List<TimeBucketAggregate> timeseries(
+            @Param("bucket") String bucket,
+            @Param("configId") Long configId,
+            @Param("fromTs") Instant fromTs,
+            @Param("toTs") Instant toTs);
+
     interface CategoryAggregate {
         String getCategory();
         Long getCount();
@@ -84,6 +99,11 @@ public interface SecurityEventRepository extends JpaRepository<SecurityEventEnti
 
     interface PathAggregate {
         String getPath();
+        Long getCount();
+    }
+
+    interface TimeBucketAggregate {
+        Instant getBucket();
         Long getCount();
     }
 }
