@@ -1,0 +1,58 @@
+---
+description: Core workflow for implementing any feature or change in this project
+alwaysApply: true
+---
+
+# Feature Implementation Workflow
+
+Follow this for every non-trivial change.
+
+## 1. Understand
+- Inspect the relevant code and find a representative implementation of a similar feature.
+- Identify existing conventions for: dependency injection, controllers, services, managers, repositories/DAOs, DTOs, entities, exceptions, validation, transactions, logging, security, configuration, testing, messaging.
+- Existing conventions win over generic rules when the existing architecture is coherent and production-ready.
+
+## 2. Plan
+Identify what the change touches:
+API, DTOs, service, manager/business logic, repository/DAO, DB changes, external integrations, events, tests, observability, security, scalability.
+
+## 3. Reuse
+Search for existing services, managers, repositories, clients, mappers, utilities, exceptions, DTOs, and events. Do not duplicate functionality.
+
+## 4. Implement
+- Smallest clean solution that satisfies the requirements.
+- No unrelated refactoring.
+
+## 5. Test
+Add or update unit, integration, and API tests as appropriate.
+
+## 6. Review checklist (verify before finishing)
+- [ ] Clear separation of responsibilities
+- [ ] No business logic in controllers or repositories
+- [ ] DTOs separated from persistence entities where appropriate
+- [ ] Correct transaction boundaries
+- [ ] Proper validation and error handling
+- [ ] Secure configuration, no hardcoded secrets
+- [ ] Appropriate logging (no sensitive data)
+- [ ] Tests added
+- [ ] Idempotency considered where required
+- [ ] Failure scenarios considered
+- [ ] No obvious scalability bottleneck
+- [ ] Existing conventions respected
+- [ ] No unnecessary abstractions
+- [ ] No unrelated changes
+
+## Architecture Decision Principle
+The goal is NOT to maximize layers. The goal is clear boundaries, correct responsibilities, maintainability, reliability, scalability, observability, and security.
+
+`Controller -> Service -> Repository` beats `Controller -> Facade -> Service -> Manager -> Handler -> DAO -> Repository -> Adapter` when the extra layers add no value. Architecture should evolve with complexity.
+
+## Git (stories)
+- One branch per story: `story/Sxx-short-slug` from `main`. Merge `--no-ff` into `main` before the next story.
+- Small, focused, independently reviewable commits. Describe what landed and why.
+- Do not implement future stories on the current branch. Do not commit the whole platform at once.
+- Do not manufacture empty commits or burst many commits within seconds.
+- `mvn test` must pass before merging a story. Keep `main` buildable.
+
+## Final Principle
+Write code as if another senior engineer must understand it quickly, debug it under production pressure, extend it without fear, scale it, test it reliably, and recover it from failures.

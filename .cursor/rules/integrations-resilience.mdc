@@ -1,0 +1,21 @@
+---
+description: Kafka/DB failure handling; no HTTP between Mini WSA services
+globs: **/client/**,**/messaging/**,**/config/**
+alwaysApply: false
+---
+
+# External Integrations
+
+The only external systems are local Kafka and PostgreSQL.
+
+- ingest-api: `EventIngestService -> KafkaEventProducer` (client/adapter). Kafka down → HTTP 503. No datasource.
+- analytics-service: Kafka consumer + JDBC. Postgres down → HTTP 5xx and consumer retries/DLQ. Kafka down → consumer idle; reads of existing rows still work.
+- Services must not call each other over HTTP. Generator is a CLI client of ingest-api, not a peer service.
+
+No Redis, no payment clients, no remote APIs.
+
+# Failure scenarios
+- Duplicate POST same `eventId`: 201 twice, one stored row.
+- Consumer crash after insert: retry is idempotent.
+- Poison JSON: DLQ, do not block the partition forever.
+- Swallowing exceptions is forbidden.

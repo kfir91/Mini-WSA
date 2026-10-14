@@ -1,0 +1,26 @@
+---
+description: Kafka ingest-to-analytics pipeline, idempotency, retries, and DLQ
+globs: **/messaging/**,**/consumer/**,**/producer/**,**/client/**
+alwaysApply: false
+---
+
+# Asynchronous Processing
+
+Ingest publishes raw events to Kafka. Analytics consumes, enriches, and persists.
+
+```text
+ingest-api Controller -> EventIngestService -> KafkaEventProducer -> Kafka
+Kafka -> SecurityEventConsumer -> EventEnrichmentService -> EnrichmentManager -> SecurityEventRepository
+```
+
+There is no outbox (ingest has no database). `201` means broker ack, not a SQL row yet.
+
+## Consumers
+- Idempotent on `event_id` primary key (skip duplicate insert).
+- Bounded retries for transient DB errors.
+- Deserialization failures: DLQ immediately (non-retryable).
+- After retries exhausted: `security-events.dlq`.
+- Never assume exactly-once.
+
+## Local runtime
+One partition in v1 so IP-window scoring sees ingest order. No HPA/KEDA. Topic names and retry counts come from configuration.
