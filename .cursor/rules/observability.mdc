@@ -1,0 +1,14 @@
+---
+description: Health checks and logging for ingest-api and analytics-service
+alwaysApply: false
+---
+
+# Observability
+
+- ingest-api Actuator: liveness plus Kafka connectivity.
+- analytics-service Actuator: liveness plus Kafka and PostgreSQL.
+- Structured logs. Never log secrets, passwords, or tokens.
+- Correlation IDs on request logs when practical. No mandatory distributed tracing in v1.
+
+# Performance
+Paginate samples. Aggregate in SQL. Do not load full time ranges into memory. Do not optimize blindly.

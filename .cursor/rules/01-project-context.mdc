@@ -1,0 +1,48 @@
+---
+description: Mini WSA stack, architecture, ownership, config, and engineering principles
+alwaysApply: true
+---
+
+# Project Context
+
+Mini WSA is a local security analytics platform: ingest DLRs, enrich them, store them, and serve SOC analytics APIs.
+
+## Stack
+- Language / framework: Java 21 / Spring Boot 3
+- Build tool: Maven (multi-module)
+- Database: PostgreSQL 16 + Flyway (analytics-service only)
+- Messaging: Kafka 3.x KRaft (`security-events.raw`, `security-events.dlq`) — topic names from config, not Java constants
+- Cache: none (in-memory Bucket4j on analytics read APIs only)
+- Frontend: none
+- Deployment: Docker Compose on Windows localhost. No Kubernetes, Eureka, AWS, or paid brokers.
+
+## Architecture
+- Style: layered Controller → Service → Manager (only if reused) → Repository/DAO
+- Modules: `miniwsa-contracts`, `ingest-api`, `analytics-service`, `generator`
+- Base packages: `com.miniwsa.contracts`, `com.miniwsa.ingest`, `com.miniwsa.analytics`, `com.miniwsa.generator`
+- ingest-api (`:8081`): HTTP ingest, validation, `receivedAt`, Kafka produce. No database, no DAO, no scoring.
+- analytics-service (`:8080`): consumer, enrichment, PostgreSQL owner, stats/samples/timeseries/alerts, read rate limit.
+- generator: CLI that POSTs to ingest-api. Not a long-running service.
+- contracts: wire enums and `SecurityEventMessage` only. No scoring, no JPA, no Spring.
+
+## Conventions
+- Mapping: manual
+- Error handling: `GlobalExceptionHandler`; `{ "code", "message", "details": [...] }`; never stack traces or secrets to clients
+- Auth: none in v1
+- Logging: structured logs; no passwords, tokens, or full PII dumps
+
+## Commands
+- Build: `mvn test`
+- Run tests: `mvn test`
+- Run locally: `docker compose up --build` (after S11). Until then: Compose for Postgres+Kafka only; `mvn spring-boot:run` per app.
+
+## Engineering principles
+Keep it simple. OOP/SOLID. Separate HTTP, business logic, persistence, messaging, and config. No hardcoded URLs, ports, topics, timeouts, or limits — use `application.yml` and env vars. Never commit secrets (`.env` gitignored; `.env.example` placeholders only). One owner per concern. Validate inputs; do not swallow exceptions. Idempotent `event_id`; Kafka retries + DLQ. Test meaningful behavior only.
+
+## Known pitfalls
+- Do not add a DAO to ingest-api.
+- Do not put scoring in contracts.
+- Do not share JPA entities or REST DTOs across services.
+- Do not classify/score inside the ingest HTTP request; analytics owns that after Kafka.
+- Do not log `POSTGRES_PASSWORD` or other secrets.
+- Do not implement the next story on the current branch.

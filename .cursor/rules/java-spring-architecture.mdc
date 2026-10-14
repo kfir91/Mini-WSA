@@ -1,0 +1,58 @@
+---
+description: Layered architecture rules (controller, service, manager, repository, entity, DI) for Java/Spring code
+globs: **/*.java
+alwaysApply: false
+---
+
+# Layered Architecture (Java / Spring)
+
+Default synchronous flow:
+
+```text
+Client -> Controller -> Request DTO -> Service -> Manager / Domain Logic -> Repository / DAO -> Database
+```
+
+External integration: `Service / Manager -> Client / Adapter -> External System`
+
+Not every feature needs every layer. Do not create layers just because the pattern exists.
+
+## Controller
+Responsible for HTTP concerns only: endpoints, path/query params, request DTOs, basic validation, authN/authZ, calling a Service, mapping to response DTOs, HTTP status codes.
+
+Never in controllers: business logic, DB queries, direct repository calls, complex object construction, long workflows, external API orchestration.
+
+## Service
+Represents an application use case: coordinate the flow, application-level validation, transaction boundaries, call repositories and managers, trigger events, coordinate integrations.
+Express *what the application is doing*, not low-level infrastructure. Avoid huge services that hold every capability.
+
+## Manager
+A reusable business/domain capability or complex orchestration (e.g. PaymentManager, NotificationManager, PermissionManager).
+- Service = use-case orchestration. Manager = reusable business capability.
+- Do NOT create a Manager just because a feature "should have one". If a Service is simple, keep the logic there.
+- Avoid God Managers with unrelated functionality.
+
+## Repository / DAO
+Persistence only: queries, CRUD, filtering, pagination, sorting, efficient retrieval.
+- Good: `findActiveUsers(...)`, `findOrdersByCustomerId(...)`
+- Bad: `approveUser(...)`, `calculateDiscount(...)` (business decisions belong above persistence)
+- Never access the DB directly from controllers.
+
+## Entity / Domain Model
+- Entities represent persistence, not the API.
+- A separate domain model is optional. Add it only if it gives real benefit.
+
+## Dependency Injection
+- Constructor injection with `final` fields.
+- Avoid: manual construction of dependencies in business classes, static global state, service locators, hidden dependencies.
+
+## Code Quality
+- Prefer composition over inheritance.
+- Do not create an interface for every service "by default". Create abstractions only when they add value (multiple implementations, boundaries, testing seams).
+- Avoid generic `Utils` classes with unrelated functionality.
+
+## Package Structure (baseline, not mandatory)
+```text
+controller/  dto/{request,response}/  service/  manager/  repository/  entity/
+client/  mapper/  exception/  config/  security/  messaging/{producer,consumer}/
+```
+If the project already uses a coherent feature-based, clean, or hexagonal structure, follow it instead.

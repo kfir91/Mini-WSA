@@ -1,0 +1,14 @@
+---
+description: Secrets, validation, and read API rate limiting
+globs: **/security/**,**/config/**,**/*.yml,**/*.yaml,**/*.properties,**/.env*
+alwaysApply: false
+---
+
+# Security
+
+- No authentication in v1.
+- Validate ingest payloads (required fields, enums, ISO-8601 timestamps).
+- Rate limit stats and samples (configured limit per client IP); 429 when exceeded. Ingest and alerts are not rate limited.
+- Never hardcode or commit passwords, tokens, or API keys. Use environment variables. Commit `.env.example` with placeholders only. Gitignore `.env`.
+- Never log credentials.
+- No JWT, no multi-tenant isolation in v1.
