@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Mini WSA analytics-service</title>
+  <style>
+    body { font-family: Segoe UI, sans-serif; max-width: 40rem; margin: 2rem auto; color: #222; }
+    code { background: #f3f3f3; padding: 0.1rem 0.35rem; }
+    a { color: #0b57d0; }
+  </style>
+</head>
+<body>
+  <h1>analytics-service</h1>
+  <p>Query APIs for stored security events. Visual tools for Kafka and Postgres are separate.</p>
+  <ul>
+    <li><a href="/actuator/health">Health</a></li>
+    <li><a href="/v1/stats/summary">Stats summary</a></li>
+    <li><a href="/v1/events/samples">Event samples</a></li>
+    <li><a href="/v1/stats/timeseries?interval=5m">Timeseries (5m)</a></li>
+    <li><a href="http://localhost:8082">Postgres (Adminer)</a></li>
+    <li><a href="http://localhost:8083">Kafka UI</a></li>
+  </ul>
+</body>
+</html>
