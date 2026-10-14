@@ -36,6 +36,8 @@ miniwsa:
     retry-attempts: ${KAFKA_RETRY_ATTEMPTS:3}
   enrichment:
     repeat-offender-window: ${REPEAT_OFFENDER_WINDOW:10m}
+  rate-limit:
+    requests-per-minute: ${RATE_LIMIT_PER_MINUTE:100}
 
 management:
   endpoints:
