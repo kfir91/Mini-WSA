@@ -1,46 +1,43 @@
 package com.miniwsa.analytics.service;
 
-import com.miniwsa.analytics.alert.AlertDefinition;
-import com.miniwsa.analytics.dto.request.DefineAlertRequest;
-import com.miniwsa.analytics.dto.response.AlertDefinitionResponse;
-import com.miniwsa.analytics.dto.response.AlertEvaluationResponse;
+import com.miniwsa.analytics.api.AlertDefinitionResponse;
+import com.miniwsa.analytics.api.AlertEvaluationResponse;
+import com.miniwsa.analytics.api.DefineAlertRequest;
+import com.miniwsa.analytics.domain.AlertDefinition;
+import com.miniwsa.analytics.domain.AlertMetric;
+import com.miniwsa.analytics.domain.AlertWindow;
+import com.miniwsa.analytics.mapper.AlertMapper;
 import com.miniwsa.analytics.repository.SecurityEventRepository;
 import com.miniwsa.contracts.AttackCategory;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Defines and evaluates in-memory alert rules against stored events.
+ */
 @Service
 public class AlertService {
 
-    private static final Set<String> METRICS = Set.of("event_count", "unique_ips");
-    private static final Map<String, Duration> WINDOWS = Map.of(
-            "5m", Duration.ofMinutes(5),
-            "1h", Duration.ofHours(1));
-
     private final Map<String, AlertDefinition> store = new ConcurrentHashMap<>();
     private final SecurityEventRepository repository;
+    private final AlertMapper alertMapper;
     private final Clock clock;
 
-    public AlertService(SecurityEventRepository repository, Clock clock) {
+    public AlertService(SecurityEventRepository repository, AlertMapper alertMapper, Clock clock) {
         this.repository = repository;
+        this.alertMapper = alertMapper;
         this.clock = clock;
     }
 
     public AlertDefinitionResponse define(DefineAlertRequest request) {
-        if (!METRICS.contains(request.getMetric())) {
-            throw new IllegalArgumentException("metric must be event_count or unique_ips");
-        }
-        if (!WINDOWS.containsKey(request.getWindow())) {
-            throw new IllegalArgumentException("window must be 5m or 1h");
-        }
+        AlertMetric metric = AlertMetric.fromWire(request.getMetric());
+        AlertWindow window = AlertWindow.fromWire(request.getWindow());
         String category = request.getCategory();
         if (category != null && !category.isBlank()) {
             try {
@@ -55,11 +52,11 @@ public class AlertService {
                 UUID.randomUUID().toString(),
                 request.getConfigId(),
                 category,
-                request.getMetric(),
-                request.getWindow(),
+                metric,
+                window,
                 request.getThreshold());
         store.put(definition.getId(), definition);
-        return toResponse(definition);
+        return alertMapper.toResponse(definition);
     }
 
     public List<AlertEvaluationResponse> evaluateAll() {
@@ -75,23 +72,14 @@ public class AlertService {
         if (definition == null) {
             throw new IllegalStateException("Unknown alert id");
         }
-        Instant since = clock.instant().minus(WINDOWS.get(definition.getWindow()));
+        Instant since = clock.instant().minus(definition.getWindow().getDuration());
         long value;
-        if ("unique_ips".equals(definition.getMetric())) {
+        if (definition.getMetric() == AlertMetric.UNIQUE_IPS) {
             value = repository.countDistinctIpsSince(definition.getConfigId(), since);
         } else {
             value = repository.countSince(definition.getConfigId(), definition.getCategory(), since);
         }
-        return new AlertEvaluationResponse(alertId, value >= definition.getThreshold(), value, definition.getThreshold());
-    }
-
-    private static AlertDefinitionResponse toResponse(AlertDefinition definition) {
-        return new AlertDefinitionResponse(
-                definition.getId(),
-                definition.getConfigId(),
-                definition.getCategory(),
-                definition.getMetric(),
-                definition.getWindow(),
-                definition.getThreshold());
+        return new AlertEvaluationResponse(
+                alertId, value >= definition.getThreshold(), value, definition.getThreshold());
     }
 }

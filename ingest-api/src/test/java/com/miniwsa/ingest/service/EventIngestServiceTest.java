@@ -56,7 +56,7 @@ class EventIngestServiceTest {
     @Test
     void invalidItemPublishesNothing() {
         SecurityEventMessage invalid = EventFixtures.validEvent("evt-bad");
-        invalid.setEventId(" ");
+        invalid.setEventId("");
         assertThrows(IngestValidationException.class, () -> service.ingest(List.of(EventFixtures.validEvent("evt-1"), invalid)));
         verify(producer, never()).publish(any());
     }

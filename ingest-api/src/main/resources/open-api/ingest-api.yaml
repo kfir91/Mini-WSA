@@ -1,0 +1,212 @@
+openapi: 3.0.3
+info:
+  title: Mini WSA ingest-api
+  version: 0.1.0
+  description: Ingest security events and publish them to Kafka. HTTP 201 means Kafka ack, not Postgres write.
+servers:
+  - url: http://localhost:8081
+paths:
+  /v1/events/ingest:
+    post:
+      tags: [Events]
+      operationId: ingestEvents
+      summary: Ingest one event or a batch
+      description: Accepts a single SecurityEventMessage object or a non-empty array. Stamps receivedAt and publishes to Kafka.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              description: >
+                OneOf runtime contract — either a single SecurityEventMessage object
+                or a non-empty array of SecurityEventMessage (see components.schemas).
+              oneOf:
+                - $ref: '#/components/schemas/SecurityEventMessage'
+                - type: array
+                  minItems: 1
+                  items:
+                    $ref: '#/components/schemas/SecurityEventMessage'
+            examples:
+              single:
+                summary: Single event
+                value:
+                  eventId: evt-00132
+                  timestamp: 2026-05-20T14:32:10Z
+                  configId: 14227
+                  policyId: pol_web1
+                  clientIp: 203.0.113.42
+                  hostname: www.example.com
+                  path: /api/v1/login
+                  method: POST
+                  statusCode: 403
+                  userAgent: Mozilla/5.0
+                  rule:
+                    id: "950001"
+                    name: SQL_INJECTION
+                    message: SQL Injection Attack Detected
+                    severity: CRITICAL
+                    category: INJECTION
+                  action: DENY
+                  geoLocation:
+                    country: CN
+                    city: Beijing
+                  requestSize: 1024
+                  responseSize: 256
+              batch:
+                summary: Batch of events
+                value:
+                  - eventId: evt-00132
+                    timestamp: 2026-05-20T14:32:10Z
+                    configId: 14227
+                    policyId: pol_web1
+                    clientIp: 203.0.113.42
+                    hostname: www.example.com
+                    path: /api/v1/login
+                    method: POST
+                    statusCode: 403
+                    userAgent: Mozilla/5.0
+                    rule:
+                      id: "950001"
+                      name: SQL_INJECTION
+                      message: SQL Injection Attack Detected
+                      severity: CRITICAL
+                      category: INJECTION
+                    action: DENY
+                    geoLocation:
+                      country: CN
+                      city: Beijing
+                    requestSize: 1024
+                    responseSize: 256
+
+      responses:
+        '201':
+          description: Kafka accepted the message(s)
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Kafka unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    AttackCategory:
+      type: string
+      enum: [INJECTION, XSS, PROTOCOL_VIOLATION, DATA_LEAKAGE, BOT, DOS, RATE_LIMIT]
+    Severity:
+      type: string
+      enum: [CRITICAL, HIGH, MEDIUM, LOW]
+    Action:
+      type: string
+      enum: [DENY, ALERT, MONITOR]
+    GeoLocationMessage:
+      type: object
+      required: [country, city]
+      properties:
+        country:
+          type: string
+        city:
+          type: string
+    RuleMessage:
+      type: object
+      required: [id, name, message, severity, category]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        message:
+          type: string
+        severity:
+          $ref: '#/components/schemas/Severity'
+        category:
+          $ref: '#/components/schemas/AttackCategory'
+    SecurityEventMessage:
+      type: object
+      required:
+        - eventId
+        - timestamp
+        - configId
+        - policyId
+        - clientIp
+        - hostname
+        - path
+        - method
+        - statusCode
+        - userAgent
+        - rule
+        - action
+        - geoLocation
+        - requestSize
+        - responseSize
+      properties:
+        eventId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        receivedAt:
+          type: string
+          format: date-time
+          nullable: true
+        configId:
+          type: integer
+          format: int64
+        policyId:
+          type: string
+        clientIp:
+          type: string
+        hostname:
+          type: string
+        path:
+          type: string
+        method:
+          type: string
+        statusCode:
+          type: integer
+          format: int32
+        userAgent:
+          type: string
+        rule:
+          $ref: '#/components/schemas/RuleMessage'
+        action:
+          $ref: '#/components/schemas/Action'
+        geoLocation:
+          $ref: '#/components/schemas/GeoLocationMessage'
+        requestSize:
+          type: integer
+          format: int32
+        responseSize:
+          type: integer
+          format: int32
+    ErrorDetail:
+      type: object
+      properties:
+        index:
+          type: integer
+          format: int32
+          nullable: true
+        field:
+          type: string
+          nullable: true
+        reason:
+          type: string
+          nullable: true
+    ErrorResponse:
+      type: object
+      required: [code, message, details]
+      properties:
+        code:
+          type: string
+          example: VALIDATION_ERROR
+        message:
+          type: string
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'

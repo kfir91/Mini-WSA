@@ -9,7 +9,7 @@ alwaysApply: false
 Default synchronous flow:
 
 ```text
-Client -> Controller -> Request DTO -> Service -> Manager / Domain Logic -> Repository / DAO -> Database
+Client -> Controller (implements generated api) -> Service -> Manager / Domain Logic -> Repository / DAO -> Database
 ```
 
 External integration: `Service / Manager -> Client / Adapter -> External System`
@@ -17,7 +17,7 @@ External integration: `Service / Manager -> Client / Adapter -> External System`
 Not every feature needs every layer. Do not create layers just because the pattern exists.
 
 ## Controller
-Responsible for HTTP concerns only: endpoints, path/query params, request DTOs, basic validation, authN/authZ, calling a Service, mapping to response DTOs, HTTP status codes.
+Responsible for HTTP concerns only: implements generated OpenAPI interfaces, basic validation glue, calling a Service, HTTP status codes.
 
 Never in controllers: business logic, DB queries, direct repository calls, complex object construction, long workflows, external API orchestration.
 
@@ -26,33 +26,31 @@ Represents an application use case: coordinate the flow, application-level valid
 Express *what the application is doing*, not low-level infrastructure. Avoid huge services that hold every capability.
 
 ## Manager
-A reusable business/domain capability or complex orchestration (e.g. PaymentManager, NotificationManager, PermissionManager).
+A reusable business/domain capability or complex orchestration (e.g. EnrichmentManager).
 - Service = use-case orchestration. Manager = reusable business capability.
 - Do NOT create a Manager just because a feature "should have one". If a Service is simple, keep the logic there.
-- Avoid God Managers with unrelated functionality.
 
 ## Repository / DAO
 Persistence only: queries, CRUD, filtering, pagination, sorting, efficient retrieval.
-- Good: `findActiveUsers(...)`, `findOrdersByCustomerId(...)`
-- Bad: `approveUser(...)`, `calculateDiscount(...)` (business decisions belong above persistence)
 - Never access the DB directly from controllers.
 
-## Entity / Domain Model
-- Entities represent persistence, not the API.
-- A separate domain model is optional. Add it only if it gives real benefit.
+## Entity / Domain / Api / Contract
+- **entity**: persistence only (JPA).
+- **domain**: business meaning inside analytics (hand-written).
+- **api**: generated HTTP models/interfaces for one service.
+- **contract**: generated shared wire models for Kafka + ingest body.
+- Never return entities from controllers. Never put JPA on api/contract models. Never put score labels in contracts.
+
+## Mapper
+MapStruct mappers in `mapper/` convert contract/api ↔ entity/domain. No business logic in mappers.
 
 ## Dependency Injection
-- Constructor injection with `final` fields.
-- Avoid: manual construction of dependencies in business classes, static global state, service locators, hidden dependencies.
+- Constructor injection with `final` fields (`@RequiredArgsConstructor` is fine).
+- Avoid: manual construction of dependencies in business classes, static global state, service locators.
 
-## Code Quality
-- Prefer composition over inheritance.
-- Do not create an interface for every service "by default". Create abstractions only when they add value (multiple implementations, boundaries, testing seams).
-- Avoid generic `Utils` classes with unrelated functionality.
-
-## Package Structure (baseline, not mandatory)
+## Package Structure (baseline)
 ```text
-controller/  dto/{request,response}/  service/  manager/  repository/  entity/
-client/  mapper/  exception/  config/  security/  messaging/{producer,consumer}/
+api/ (generated)  controller/  service/  manager/  domain/  repository/  entity/
+mapper/  client/  exception/  config/  messaging/{producer,consumer}/  web/
 ```
-If the project already uses a coherent feature-based, clean, or hexagonal structure, follow it instead.
+Do not add a hand-written `dto/` package. If the project already uses a coherent structure, follow it—except `dto/` which is deprecated.

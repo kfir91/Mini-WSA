@@ -1,6 +1,6 @@
 package com.miniwsa.ingest.exception;
 
-import com.miniwsa.ingest.dto.ErrorDetail;
+import com.miniwsa.ingest.api.ErrorDetail;
 
 import java.util.List;
 

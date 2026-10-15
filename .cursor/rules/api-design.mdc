@@ -1,15 +1,21 @@
 ---
-description: API design, DTOs, validation, and error handling conventions
-globs: **/controller/**,**/api/**,**/dto/**,**/exception/**
+description: API design, OpenAPI contract-first, validation, and error handling conventions
+globs: **/controller/**,**/api/**,**/open-api/**,**/exception/**
 alwaysApply: false
 ---
 
 # API Design
 
-## DTOs
+## Source of truth
+- HTTP APIs are defined in `src/main/resources/open-api/*.yaml`.
+- Maven `openapi-generator-maven-plugin` generates interfaces and models on `generate-sources`.
+- Controllers **implement** generated interfaces. Do not invent parallel hand-written request/response DTO packages.
+- Swagger UI serves the same YAML files (not annotation scanning as the source of truth).
+
+## Models
 - Never expose persistence entities through APIs.
-- Use dedicated contracts: `CreateRequest`, `UpdateRequest`, `Response`, `SummaryResponse`.
-- DTOs represent the API contract, not the DB schema. Map explicitly; do not blindly expose every field.
+- Api models represent the HTTP contract, not the DB schema. Map with MapStruct.
+- Shared wire event shape lives in `miniwsa-contracts` OpenAPI components, not copied as analytics-only types for Kafka.
 
 ## API Quality
 APIs must be consistent, predictable, RESTful where appropriate, validated, documented, and backward compatible when required.
@@ -18,12 +24,12 @@ Consider: pagination, filtering, sorting, idempotency, versioning, rate limiting
 
 ## Validation (right check at the right layer)
 - API layer: structural (required, format, range).
-- Business layer: is the operation allowed? (permissions, state transitions)
+- Business layer: is the operation allowed?
 - Database: integrity (unique, FK, NOT NULL).
 - Do not duplicate the exact same validation in every layer.
 
 ## Error Handling
-Use centralized, consistent handling. Categories: validation, business, authentication, authorization, not found, conflict, external service failure, infrastructure failure, unexpected.
+Use centralized, consistent handling.
 
 Consistent structure:
 ```json

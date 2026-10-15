@@ -39,6 +39,19 @@ miniwsa:
   rate-limit:
     requests-per-minute: ${RATE_LIMIT_PER_MINUTE:100}
 
+springdoc:
+  # api-docs must stay enabled or swagger-ui itself returns 404 (springdoc 2.x).
+  # The UI loads our YAML via swagger-ui.url — not the scanned annotation docs.
+  api-docs:
+    enabled: true
+  swagger-ui:
+    # springdoc uses this as a redirect entry; UI assets live under /swagger-ui/
+    path: /swagger-ui.html
+    url: /open-api/analytics-api.yaml
+    disable-swagger-default-url: true
+
+
+
 management:
   endpoints:
     web:
@@ -48,3 +61,4 @@ management:
     health:
       probes:
         enabled: true
+

@@ -1,12 +1,14 @@
 package com.miniwsa.analytics.service;
 
-import com.miniwsa.analytics.dto.request.DefineAlertRequest;
-import com.miniwsa.analytics.dto.response.AlertDefinitionResponse;
-import com.miniwsa.analytics.dto.response.AlertEvaluationResponse;
+import com.miniwsa.analytics.api.AlertDefinitionResponse;
+import com.miniwsa.analytics.api.AlertEvaluationResponse;
+import com.miniwsa.analytics.api.DefineAlertRequest;
+import com.miniwsa.analytics.mapper.AlertMapper;
 import com.miniwsa.analytics.repository.SecurityEventRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mapstruct.factory.Mappers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -35,7 +37,7 @@ class AlertServiceTest {
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(Instant.parse("2026-05-20T15:00:00Z"), ZoneOffset.UTC);
-        alertService = new AlertService(repository, clock);
+        alertService = new AlertService(repository, Mappers.getMapper(AlertMapper.class), clock);
     }
 
     @Test
@@ -43,7 +45,7 @@ class AlertServiceTest {
         AlertDefinitionResponse defined = alertService.define(request("event_count", 3, null));
         when(repository.countSince(eq(14227L), isNull(), any())).thenReturn(3L);
         AlertEvaluationResponse result = alertService.evaluate(defined.getId());
-        assertTrue(result.isFiring());
+        assertTrue(result.getFiring());
         assertEquals(3L, result.getValue());
     }
 
@@ -52,7 +54,7 @@ class AlertServiceTest {
         AlertDefinitionResponse defined = alertService.define(request("event_count", 2, "INJECTION"));
         when(repository.countSince(eq(14227L), eq("INJECTION"), any())).thenReturn(4L);
         AlertEvaluationResponse result = alertService.evaluate(defined.getId());
-        assertTrue(result.isFiring());
+        assertTrue(result.getFiring());
         assertEquals(4L, result.getValue());
     }
 
@@ -71,7 +73,7 @@ class AlertServiceTest {
         AlertDefinitionResponse defined = alertService.define(request("unique_ips", 5, null));
         when(repository.countDistinctIpsSince(eq(14227L), any())).thenReturn(2L);
         AlertEvaluationResponse result = alertService.evaluate(defined.getId());
-        assertFalse(result.isFiring());
+        assertFalse(result.getFiring());
         assertEquals(2L, result.getValue());
     }
 

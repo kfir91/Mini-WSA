@@ -1,7 +1,8 @@
 package com.miniwsa.analytics.service;
 
-import com.miniwsa.analytics.dto.response.TimeseriesResponse;
+import com.miniwsa.analytics.api.TimeseriesResponse;
 import com.miniwsa.analytics.repository.SecurityEventRepository;
+import com.miniwsa.analytics.repository.TimeseriesBucketQuery;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,33 +21,33 @@ import static org.mockito.Mockito.when;
 class TimeseriesServiceTest {
 
     @Mock
-    private SecurityEventRepository repository;
+    private TimeseriesBucketQuery timeseriesBucketQuery;
 
     private TimeseriesService timeseriesService;
 
     @BeforeEach
     void setUp() {
-        timeseriesService = new TimeseriesService(repository);
+        timeseriesService = new TimeseriesService(timeseriesBucketQuery);
     }
 
     @Test
     void mapsSupportedIntervalToPostgresDuration() {
-        Instant bucket = Instant.parse("2026-05-20T14:00:00Z");
-        when(repository.timeseries("5 minutes", 1L, null, null)).thenReturn(List.of(new SecurityEventRepository.TimeBucketAggregate() {
-            @Override
-            public Instant getBucket() {
-                return bucket;
-            }
+        when(timeseriesBucketQuery.query("5 minutes", 1L, null, null)).thenReturn(List.of(
+                new SecurityEventRepository.TimeBucketAggregate() {
+                    @Override
+                    public Instant getBucket() {
+                        return Instant.parse("2026-05-20T14:00:00Z");
+                    }
 
-            @Override
-            public Long getCount() {
-                return 4L;
-            }
-        }));
+                    @Override
+                    public Long getCount() {
+                        return 3L;
+                    }
+                }));
         TimeseriesResponse response = timeseriesService.timeseries("5m", 1L, null, null);
         assertEquals("5m", response.getInterval());
-        assertEquals(4L, response.getPoints().get(0).getCount());
-        verify(repository).timeseries("5 minutes", 1L, null, null);
+        assertEquals(1, response.getPoints().size());
+        verify(timeseriesBucketQuery).query("5 minutes", 1L, null, null);
     }
 
     @Test

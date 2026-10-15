@@ -1,5 +1,8 @@
 package com.miniwsa.generator;
 
+/**
+ * Parsed generator CLI flags ({@code --count}, {@code --wave}, …).
+ */
 public class CliOptions {
 
     private String baseUrl = "http://localhost:8081";

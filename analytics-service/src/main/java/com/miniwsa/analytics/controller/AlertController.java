@@ -1,22 +1,21 @@
 package com.miniwsa.analytics.controller;
 
-import com.miniwsa.analytics.dto.request.DefineAlertRequest;
-import com.miniwsa.analytics.dto.response.AlertDefinitionResponse;
-import com.miniwsa.analytics.dto.response.AlertEvaluationResponse;
+import com.miniwsa.analytics.api.AlertDefinitionResponse;
+import com.miniwsa.analytics.api.AlertEvaluationResponse;
+import com.miniwsa.analytics.api.AlertsApi;
+import com.miniwsa.analytics.api.DefineAlertRequest;
 import com.miniwsa.analytics.service.AlertService;
-import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/**
+ * Alerts HTTP adapter implementing the generated OpenAPI interface.
+ */
 @RestController
-public class AlertController {
+public class AlertController implements AlertsApi {
 
     private final AlertService alertService;
 
@@ -24,17 +23,16 @@ public class AlertController {
         this.alertService = alertService;
     }
 
-    @PostMapping("/v1/alerts/define")
-    @ResponseStatus(HttpStatus.CREATED)
-    public AlertDefinitionResponse define(@Valid @RequestBody DefineAlertRequest request) {
-        return alertService.define(request);
+    @Override
+    public ResponseEntity<AlertDefinitionResponse> defineAlert(DefineAlertRequest defineAlertRequest) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(alertService.define(defineAlertRequest));
     }
 
-    @GetMapping("/v1/alerts/evaluate")
-    public List<AlertEvaluationResponse> evaluate(@RequestParam(required = false) String alertId) {
+    @Override
+    public ResponseEntity<List<AlertEvaluationResponse>> evaluateAlerts(String alertId) {
         if (alertId == null || alertId.isBlank()) {
-            return alertService.evaluateAll();
+            return ResponseEntity.ok(alertService.evaluateAll());
         }
-        return List.of(alertService.evaluate(alertId));
+        return ResponseEntity.ok(List.of(alertService.evaluate(alertId)));
     }
 }

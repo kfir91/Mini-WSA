@@ -1,11 +1,13 @@
 package com.miniwsa.analytics.service;
 
-import com.miniwsa.analytics.dto.response.SamplePageResponse;
+import com.miniwsa.analytics.api.SamplePageResponse;
 import com.miniwsa.analytics.entity.SecurityEventEntity;
+import com.miniwsa.analytics.mapper.SampleEventMapper;
 import com.miniwsa.analytics.repository.SecurityEventRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mapstruct.factory.Mappers;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -31,7 +33,7 @@ class SampleServiceTest {
 
     @BeforeEach
     void setUp() {
-        sampleService = new SampleService(repository);
+        sampleService = new SampleService(repository, Mappers.getMapper(SampleEventMapper.class));
     }
 
     @Test

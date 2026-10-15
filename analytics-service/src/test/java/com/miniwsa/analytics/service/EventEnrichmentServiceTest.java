@@ -2,6 +2,7 @@ package com.miniwsa.analytics.service;
 
 import com.miniwsa.analytics.entity.SecurityEventEntity;
 import com.miniwsa.analytics.manager.EnrichmentManager;
+import com.miniwsa.analytics.mapper.SecurityEventMapper;
 import com.miniwsa.analytics.repository.SecurityEventRepository;
 import com.miniwsa.contracts.Action;
 import com.miniwsa.contracts.AttackCategory;
@@ -12,6 +13,7 @@ import com.miniwsa.contracts.Severity;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mapstruct.factory.Mappers;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -36,7 +38,11 @@ class EventEnrichmentServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new EventEnrichmentService(repository, new EnrichmentManager(), Duration.ofMinutes(10));
+        service = new EventEnrichmentService(
+                repository,
+                new EnrichmentManager(),
+                Mappers.getMapper(SecurityEventMapper.class),
+                Duration.ofMinutes(10));
     }
 
     @Test

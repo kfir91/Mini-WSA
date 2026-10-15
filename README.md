@@ -6,43 +6,95 @@ Java 17+, Maven 3.8+, Docker Desktop, and a free local stack (PostgreSQL 16 + Ka
 
 ## Architecture
 
-```text
-Generator / curl
-        |
-        v
-   ingest-api :8081
-        |  Kafka ack => HTTP 201
-        v
- security-events.raw  ---->  analytics-service :8080
- security-events.dlq  <----  (poison / exhausted retries)
-        |
-        v
-   PostgreSQL 16  (analytics-owned)
-        |
-        v
-  /v1/stats/summary
-  /v1/events/samples
-  /v1/stats/timeseries
-  /v1/alerts/*
-```
-
-| Component | Owns | Does not |
-|---|---|---|
-| ingest-api | HTTP ingest, Kafka produce | Database, scoring |
-| analytics-service | Kafka consume, enrichment, PostgreSQL, read APIs, rate limit | Ingest HTTP |
-| miniwsa-contracts | Enums + `SecurityEventMessage` | Topic names, score formula |
-| generator | Synthetic traffic | Persistence |
-
-## Repository layout
+### End-to-end runtime
 
 ```text
-miniwsa-contracts/   shared wire types
-ingest-api/          POST /v1/events/ingest
-analytics-service/   consumer, Flyway, query APIs
-generator/           CLI attack waves
-docker-compose.yml   Postgres + Kafka
-.env.example         secret placeholders
+  generator / curl / Swagger UI
+              |
+              |  POST /v1/events/ingest
+              v
+        ingest-api :8081
+        (validate → stamp receivedAt → Kafka produce)
+              |  HTTP 201 = broker ack (not Postgres write)
+              v
+   security-events.raw  ----------->  analytics-service :8080
+   security-events.dlq  <-----------  (poison / exhausted retries)
+              |                         |
+              |                         |  consume → classify/score → Postgres
+              |                         v
+              |                    PostgreSQL 16
+              |                         |
+              |                         |  GET summary / samples / timeseries / alerts
+              |                         v
+              |                    clients / Swagger UI
+              |
+   Infra (Compose): Postgres :5432, Kafka :9092,
+                    Adminer :8082, Kafka UI :8083
+   OpenAPI YAML + Swagger UI on both apps (see below)
 ```
+
+### Module ownership
+
+| Module | Port | Owns | Does not own |
+|---|---|---|---|
+| `miniwsa-contracts` | — | Wire models/enums from OpenAPI (`SecurityEventMessage`, severity/action/category) | Scoring, JPA, Spring, REST query DTOs |
+| `ingest-api` | 8081 | Validate + stamp `receivedAt` + Kafka produce; error schemas | Database, classify/score, alerts |
+| `analytics-service` | 8080 | Kafka consume, domain enrich, Postgres, read APIs, in-memory alerts, rate limit on stats/samples | Ingest HTTP, shared REST types with ingest |
+| `generator` | — | CLI synthetic waves using contracts jar | Persistence, OpenAPI codegen |
+
+### Layers inside each Spring app
+
+**ingest-api:** `api` (OpenAPI) → `controller` → `service` → Kafka `client`. No `domain/`, no `entity/`, no repository.
+
+**analytics-service:** `api` → `controller` → `service` → `manager`/`domain` → `repository`/`entity`. MapStruct `mapper` sits between contract/api and entity. Messaging consumer/producer are adapters only.
+
+```text
+api (generated) ──> controller ──> service ──> manager/domain
+                                      │
+                                   mapper
+                                      │
+                                   entity/repository
+```
+
+### Package / folder map
+
+```text
+miniwsa-contracts/
+  src/main/resources/open-api/security-event.yaml
+  target/.../com.miniwsa.contracts/   # generated wire models
+
+ingest-api/
+  open-api/ingest-api.yaml
+  com.miniwsa.ingest.api/             # generated Error* + hand-written EventsApi (oneOf body)
+  controller / service / client / exception / config
+
+analytics-service/
+  open-api/analytics-api.yaml
+  com.miniwsa.analytics.api/          # generated HTTP models + API interfaces
+  controller / service / manager / domain / entity / repository / mapper / messaging / web / config
+
+generator/
+  com.miniwsa.generator/              # CLI only; uses contracts jar
+```
+
+### Data flow notes
+
+- The **same wire contract** is used on HTTP ingest and on the Kafka payload.
+- `attackType` and `threatScore` exist only after analytics enrichment (not on the wire).
+- Rate limit (100 req/IP/min) applies to **stats and samples only**; ingest and alerts are not limited.
+
+### OpenAPI / Swagger UI
+
+Contract-first: edit YAML under `src/main/resources/open-api/`, then `mvn generate-sources` (also runs as part of `mvn test` / `compile`). Swagger UI loads those YAML files:
+
+- ingest: http://localhost:8081/swagger-ui/index.html
+- analytics: http://localhost:8080/swagger-ui/index.html
+
+Use `/swagger-ui/index.html` (not bare `/swagger-ui.html`). Restart apps after OpenAPI/springdoc config changes.
+
+## Local hub page
+
+Open [`index.html`](index.html) in a browser (double-click from the repo root). It lists links to ingest, analytics, Swagger, Adminer, Kafka UI, and sample query URLs, and probes which ports are up.
 
 ## Run locally (Windows)
 
@@ -167,12 +219,34 @@ Attack type mapping: INJECTION → SQL/Command Injection, XSS → Cross-Site Scr
 
 ## What we learned
 
-Keeping ingest Kafka-first made the HTTP contract simple: 201 is broker ack. Analytics owning PostgreSQL avoided a shared-database microservice anti-pattern. Putting the score formula in analytics (not the contracts jar) kept the wire type from becoming a business-rules dump.
+- **201 does not mean the event is in the database.** Ingest only waits for Kafka to accept the message. Analytics reads from Kafka later and writes to Postgres. That split made the ingest API smaller and easier to reason about.
+- **Two services need clear ownership.** Ingest has no database. Analytics owns Postgres and the score formula. The shared `miniwsa-contracts` jar only holds the JSON shape, so changing how we score attacks does not force a change to the message type.
+- **SQL is a good fit for the stats APIs.** Summary, top attackers, and time buckets are plain queries (`GROUP BY`, `AVG`, `date_bin`). We did not need a separate analytics product for this size of data.
+- **Idempotency matters with Kafka.** The same `eventId` can show up twice (retry, redelivery). We skip insert when the id already exists, so duplicates do not inflate counts.
 
 ## Challenges
 
-Kafka advertised listeners on Windows Docker vs host processes. Native `date_bin` is Postgres-only, so timeseries unit tests mock the DAO and H2 is used for samples/IT. In-memory alerts are not durable across restarts.
+- **Kafka on Windows Docker.** Getting the host app to talk to Kafka inside Docker was the hardest setup step. The broker must advertise an address the host can reach (`localhost:9092`). Wrong advertised listeners meant produce/consume hung or failed even when the container was healthy.
+- **Postgres-only SQL in tests.** Timeseries uses `date_bin`, which H2 does not support the same way. Unit tests mock that repository method; samples and context tests use H2.
+- **Alerts are only in memory.** Defined alerts live in a map inside the process. Restart analytics-service and they are gone. That was fine for the bonus feature, but it is not production-ready storage.
+- **Host env vars leaking into tests.** A local `SPRING_DATASOURCE_URL` pointed tests at real Postgres while the test profile expected H2. We fixed that by setting the H2 URL on the Spring Boot test annotations.
 
 ## If we had more time
 
-Outbox or transactional consume-to-DB, Kafka UI, durable alert store, container-native Kafka listeners for Compose app services, and a small dashboard over the summary API.
+Platform and reliability:
+
+- Save alerts in Postgres (or another store) so they survive restarts.
+- Run ingest and analytics as Compose services too, with Kafka listeners that work for containers as well as the host (Adminer and Kafka UI are already in Compose).
+- Add an end-to-end test: post an event to ingest, wait for the consumer, assert a row and a summary count.
+- Build a small web page that charts `/v1/stats/timeseries` and shows `/v1/stats/summary`.
+- Make ingest batch publish all-or-nothing (today a mid-batch Kafka failure can leave some events already sent).
+- Stronger consumer error handling around poison messages and clearer DLQ inspection in day-to-day ops.
+
+AI / LLM (on top of the current pipeline, not instead of it):
+
+Today **classify** is a fixed map from `rule.category`, and **threatScore** is a fixed formula. Those should stay as they are: fast, cheap, and easy to test. AI would help analysts *use* the stored events, not replace those two steps.
+
+- **Semantic search over past events.** Embed fields such as path, rule message, and user agent. When an analyst opens one event, return “similar past events” so they can see if this looks like a known campaign. A small **reranker** model can reorder the top candidates so the most useful matches rise first.
+- **LLM explanations, not scores.** Keep `threatScore` from the formula. Ask an LLM to write a short plain-language note: what happened, why the score is high, and what to check next. That helps SOC users without making scores random or hard to reproduce.
+- **Natural-language queries on top of SQL stats.** Let someone ask “top IPs attacking /login last hour” and turn that into calls to summary / samples / timeseries, instead of writing query params by hand.
+- **Optional second opinion on edge cases.** For odd free-text (weird user agents, unusual paths) an LLM or embedding-based check could flag “looks unusual vs recent traffic” as an extra field. It would not overwrite category or threat score.
