@@ -5,6 +5,7 @@ import com.miniwsa.analytics.manager.EnrichmentManager;
 import com.miniwsa.analytics.repository.SecurityEventRepository;
 import com.miniwsa.contracts.SecurityEventMessage;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,7 +41,11 @@ public class EventEnrichmentService {
                 message.getAction(),
                 message.getPath(),
                 prior);
-        repository.save(toEntity(message, attackType, score));
+        try {
+            repository.save(toEntity(message, attackType, score));
+        } catch (DataIntegrityViolationException duplicate) {
+            return;
+        }
     }
 
     private static SecurityEventEntity toEntity(SecurityEventMessage message, String attackType, int score) {

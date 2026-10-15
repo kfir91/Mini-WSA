@@ -5,14 +5,14 @@ import java.util.List;
 public class SamplePageResponse {
 
     private final List<SampleEventDto> items;
-    private final int page;
-    private final int size;
+    private final int limit;
+    private final int offset;
     private final long total;
 
-    public SamplePageResponse(List<SampleEventDto> items, int page, int size, long total) {
+    public SamplePageResponse(List<SampleEventDto> items, int limit, int offset, long total) {
         this.items = items;
-        this.page = page;
-        this.size = size;
+        this.limit = limit;
+        this.offset = offset;
         this.total = total;
     }
 
@@ -20,12 +20,12 @@ public class SamplePageResponse {
         return items;
     }
 
-    public int getPage() {
-        return page;
+    public int getLimit() {
+        return limit;
     }
 
-    public int getSize() {
-        return size;
+    public int getOffset() {
+        return offset;
     }
 
     public long getTotal() {

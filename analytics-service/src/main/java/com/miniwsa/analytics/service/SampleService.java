@@ -3,10 +3,10 @@ package com.miniwsa.analytics.service;
 import com.miniwsa.analytics.dto.response.SampleEventDto;
 import com.miniwsa.analytics.dto.response.SamplePageResponse;
 import com.miniwsa.analytics.entity.SecurityEventEntity;
+import com.miniwsa.analytics.repository.OffsetPageRequest;
 import com.miniwsa.analytics.repository.SecurityEventRepository;
 import com.miniwsa.analytics.repository.SecurityEventSpecifications;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
@@ -15,9 +15,8 @@ import java.time.Instant;
 @Service
 public class SampleService {
 
-    private static final int DEFAULT_PAGE = 0;
-    private static final int DEFAULT_SIZE = 20;
-    private static final int MAX_SIZE = 100;
+    private static final int DEFAULT_LIMIT = 20;
+    private static final int MAX_LIMIT = 100;
 
     private final SecurityEventRepository repository;
 
@@ -32,18 +31,19 @@ public class SampleService {
             String category,
             String action,
             Integer minThreatScore,
-            Integer page,
-            Integer size) {
-        int resolvedPage = page == null ? DEFAULT_PAGE : Math.max(page, 0);
-        int resolvedSize = size == null ? DEFAULT_SIZE : Math.min(Math.max(size, 1), MAX_SIZE);
-        PageRequest pageable = PageRequest.of(resolvedPage, resolvedSize, Sort.by(Sort.Direction.DESC, "eventTimestamp"));
+            Integer limit,
+            Integer offset) {
+        int resolvedLimit = limit == null ? DEFAULT_LIMIT : Math.min(Math.max(limit, 1), MAX_LIMIT);
+        int resolvedOffset = offset == null ? 0 : Math.max(offset, 0);
+        OffsetPageRequest pageable = new OffsetPageRequest(
+                resolvedOffset, resolvedLimit, Sort.by(Sort.Direction.DESC, "eventTimestamp"));
         Page<SecurityEventEntity> result = repository.findAll(
                 SecurityEventSpecifications.withFilters(configId, from, to, category, action, minThreatScore),
                 pageable);
         return new SamplePageResponse(
                 result.getContent().stream().map(SampleService::toDto).toList(),
-                result.getNumber(),
-                result.getSize(),
+                resolvedLimit,
+                resolvedOffset,
                 result.getTotalElements());
     }
 

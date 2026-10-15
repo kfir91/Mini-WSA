@@ -13,12 +13,14 @@ class CliOptionsTest {
                 "--count", "25",
                 "--rate", "10",
                 "--wave", "sql",
-                "--config-id", "7"
+                "--config-id", "7",
+                "--burst-size", "40"
         });
         assertEquals("http://localhost:8081", options.getBaseUrl());
         assertEquals(25, options.getCount());
         assertEquals(10, options.getRate());
         assertEquals("sql", options.getWave());
         assertEquals(7L, options.getConfigId());
+        assertEquals(40, options.getBurstSize());
     }
 }
