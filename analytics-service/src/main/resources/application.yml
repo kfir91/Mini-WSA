@@ -4,6 +4,40 @@ server:
 spring:
   application:
     name: analytics-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/miniwsa}
+    username: ${SPRING_DATASOURCE_USERNAME:miniwsa}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: ${KAFKA_CONSUMER_GROUP:miniwsa-analytics}
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: com.miniwsa.contracts
+        spring.json.value.default.type: com.miniwsa.contracts.SecurityEventMessage
+        spring.json.use.type.headers: false
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+miniwsa:
+  kafka:
+    topic-raw: ${KAFKA_TOPIC_RAW:security-events.raw}
+    topic-dlq: ${KAFKA_TOPIC_DLQ:security-events.dlq}
+    retry-interval-ms: ${KAFKA_RETRY_INTERVAL_MS:500}
+    retry-attempts: ${KAFKA_RETRY_ATTEMPTS:3}
+  enrichment:
+    repeat-offender-window: ${REPEAT_OFFENDER_WINDOW:10m}
+  rate-limit:
+    requests-per-minute: ${RATE_LIMIT_PER_MINUTE:100}
 
 management:
   endpoints:
