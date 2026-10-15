@@ -11,7 +11,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -27,8 +26,7 @@ class DlqPublisherTest {
 
     @BeforeEach
     void setUp() {
-        publisher = new DlqPublisher(kafkaTemplate, new ObjectMapper());
-        ReflectionTestUtils.setField(publisher, "dlqTopic", "security-events.dlq");
+        publisher = new DlqPublisher(kafkaTemplate, new ObjectMapper(), "security-events.dlq");
     }
 
     @Test
@@ -72,15 +70,13 @@ class DlqPublisherTest {
                 return "fallback-obj";
             }
         };
-        // ObjectMapper cannot serialize this anonymous type without serializers; force failure path via mock mapper
         ObjectMapper failing = new ObjectMapper() {
             @Override
             public String writeValueAsString(Object value) throws com.fasterxml.jackson.core.JsonProcessingException {
                 throw new com.fasterxml.jackson.databind.JsonMappingException(null, "nope");
             }
         };
-        publisher = new DlqPublisher(kafkaTemplate, failing);
-        ReflectionTestUtils.setField(publisher, "dlqTopic", "security-events.dlq");
+        publisher = new DlqPublisher(kafkaTemplate, failing, "security-events.dlq");
 
         ConsumerRecord<String, Object> record = new ConsumerRecord<>("raw", 0, 1L, "k1", bad);
         publisher.publish(record, new RuntimeException("x"));

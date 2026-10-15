@@ -31,12 +31,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleInvalid(MethodArgumentNotValidException ex) {
         List<ErrorDetail> details = ex.getBindingResult().getFieldErrors().stream()
-                .map(error -> {
-                    ErrorDetail d = new ErrorDetail();
-                    d.setField(error.getField());
-                    d.setReason(error.getDefaultMessage());
-                    return d;
-                })
+                .map(error -> ErrorDetails.of(error.getField(), error.getDefaultMessage()))
                 .toList();
         return ResponseEntity.badRequest()
                 .body(new ErrorResponse("VALIDATION_ERROR", "Request is invalid", details));

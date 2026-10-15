@@ -35,6 +35,7 @@ class EventIngestApiE2ETest {
     @MockBean
     private KafkaEventProducer kafkaEventProducer;
 
+    /** Prevents real KafkaTemplate wiring when the producer bean is replaced. */
     @MockBean
     private KafkaTemplate<String, SecurityEventMessage> kafkaTemplate;
 

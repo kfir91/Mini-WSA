@@ -18,12 +18,12 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Duration;
 import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -44,8 +44,8 @@ class EventEnrichmentServiceTest {
         service = new EventEnrichmentService(
                 repository,
                 new EnrichmentManager(),
-                Mappers.getMapper(SecurityEventMapper.class));
-        ReflectionTestUtils.setField(service, "repeatOffenderWindow", Duration.ofMinutes(10));
+                Mappers.getMapper(SecurityEventMapper.class),
+                Duration.ofMinutes(10));
     }
 
     @Test
@@ -94,7 +94,7 @@ class EventEnrichmentServiceTest {
         service.enrichAndStore(event);
         ArgumentCaptor<SecurityEventEntity> captor = ArgumentCaptor.forClass(SecurityEventEntity.class);
         verify(repository).save(captor.capture());
-        org.junit.jupiter.api.Assertions.assertNotNull(captor.getValue().getReceivedAt());
+        assertNotNull(captor.getValue().getReceivedAt());
     }
 
     private static SecurityEventMessage message(String id, String path) {

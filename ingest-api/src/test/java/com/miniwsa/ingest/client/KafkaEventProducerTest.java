@@ -10,7 +10,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
@@ -32,9 +31,7 @@ class KafkaEventProducerTest {
 
     @BeforeEach
     void setUp() {
-        producer = new KafkaEventProducer(kafkaTemplate);
-        ReflectionTestUtils.setField(producer, "topic", "security-events.raw");
-        ReflectionTestUtils.setField(producer, "publishTimeoutSeconds", 2L);
+        producer = new KafkaEventProducer(kafkaTemplate, "security-events.raw", 2L);
     }
 
     @Test

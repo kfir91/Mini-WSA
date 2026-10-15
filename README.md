@@ -42,6 +42,7 @@ Java 17+, Maven 3.8+, Docker Desktop, and a free local stack (PostgreSQL 16 + Ka
 | `ingest-api` | 8081 | Validate + stamp `receivedAt` + Kafka produce; error schemas | Database, classify/score, alerts |
 | `analytics-service` | 8080 | Kafka consume, domain enrich, Postgres, read APIs, persisted alerts, rate limit on stats/samples | Ingest HTTP, shared REST types with ingest |
 | `generator` | — | CLI synthetic waves using contracts jar | Persistence, OpenAPI codegen |
+| `miniwsa-coverage` | — | Aggregated JaCoCo HTML/XML report after `mvn verify` | Application code |
 
 ### Layers inside each Spring app
 
@@ -76,7 +77,11 @@ analytics-service/
 
 generator/
   com.miniwsa.generator/              # CLI only; uses contracts jar
+
+miniwsa-coverage/                     # pom-only; jacoco report-aggregate
 ```
+
+Dependency injection: constructor injection everywhere. Use `@RequiredArgsConstructor` for collaborator-only beans; when config is needed, put `@Value` on **constructor parameters** (not mutable fields). Controllers stay thin; shared ingest error helpers live under `exception/` (`ErrorDetails`, `ThrowableMessages`).
 
 ### Data flow notes
 
@@ -86,7 +91,7 @@ generator/
 
 ### OpenAPI / Swagger UI
 
-Contract-first: edit YAML under `src/main/resources/open-api/`, then `mvn generate-sources` (also runs as part of `mvn test` / `compile`). Swagger UI loads those YAML files:
+Contract-first: edit YAML under `src/main/resources/open-api/`, then `mvn generate-sources` (also runs as part of `mvn verify` / `compile`). Swagger UI loads those YAML files:
 
 - ingest: http://localhost:8081/swagger-ui/index.html
 - analytics: http://localhost:8080/swagger-ui/index.html
@@ -99,8 +104,8 @@ Open [`index.html`](index.html) in a browser (double-click from the repo root). 
 
 ## Run locally (Windows)
 
-1. Copy `.env.example` to `.env` and set `POSTGRES_PASSWORD` / `SPRING_DATASOURCE_PASSWORD`.
-2. Start infrastructure from the repo root:
+1. Copy [`.env.example`](.env.example) to `.env`. Set `POSTGRES_PASSWORD` / `SPRING_DATASOURCE_PASSWORD`. Leave `SONAR_TOKEN` empty until you create a local Sonar token (never commit a real token).
+2. Start infrastructure from the repo root (Postgres, Kafka, Adminer, Kafka UI — **not** Sonar):
 
 ```powershell
 docker compose --env-file .env up -d
@@ -116,6 +121,7 @@ HTML reports:
 
 - Aggregate: `miniwsa-coverage/target/site/jacoco-aggregate/index.html`
 - Per module: `<module>/target/site/jacoco/index.html`
+- Last published numbers: [`QUALITY_REPORT.md`](QUALITY_REPORT.md)
 
 If Maven/OpenAPI hits path encoding issues on a Hebrew folder path, copy the tree to an ASCII path (e.g. `C:\Temp\miniwsa-build`) and run `mvn verify` there.
 
@@ -128,17 +134,33 @@ mvn -pl analytics-service spring-boot:run
 
 Kafka topics `security-events.raw` and `security-events.dlq` are created on first produce/consume (auto-create is enabled). Names come from `KAFKA_TOPIC_RAW` / `KAFKA_TOPIC_DLQ`.
 
+### Testing strategy
+
+Prefer **MockMvc API/E2E tests** (real Spring context + H2 for analytics) to cover HTTP → service → persistence paths in one place. Keep **focused unit tests** for:
+
+- Domain / manager scoring (`EnrichmentManager`)
+- Enrichment idempotency (`EventEnrichmentService`)
+- Messaging adapters not loaded under the `test` profile (`KafkaEventProducer`, `DlqPublisher`, `SecurityEventConsumer`)
+- Generator CLI parsing and event factory
+
+Avoid duplicating the same scenario in both a thin controller UT and an E2E test.
+
 ### Local quality (JaCoCo + SonarQube Community)
 
-Latest snapshot tables: [`QUALITY_REPORT.md`](QUALITY_REPORT.md).
+Everything runs on your Windows machine: free **JaCoCo** in Maven, free **SonarQube Community** in Docker. No SonarCloud, no paid license.
 
-Everything runs on your Windows machine: free JaCoCo in Maven, free SonarQube Community in Docker. No SonarCloud, no paid license.
+| Tool | Role | Gate |
+|---|---|---|
+| JaCoCo | Line/branch coverage; HTML + XML under `target/site/jacoco*` | `mvn verify` fails if LINE or BRANCH &lt; 95% |
+| SonarQube | Code smells, bugs, vulnerabilities, security hotspots; imports JaCoCo coverage | UI review on `http://localhost:9000` (Maven does not wait on Sonar QG) |
+
+Sonar analyzes **`src/main/java` only** (`sonar.sources`), so OpenAPI/MapStruct output under `target/generated-sources` is out of scope without a long exclusion list. JaCoCo still excludes generated class names plus a few mains/CLI/Postgres-only types (see parent `pom.xml`).
 
 ```powershell
 # Coverage + gate (≥95% LINE/BRANCH)
 mvn verify
 
-# Local SonarQube (profile keeps daily compose light)
+# Local SonarQube (optional Compose profile — keeps daily `up -d` light)
 docker compose --profile sonar up -d
 # Open http://localhost:9000 — first login admin/admin, set a new password,
 # create a user token, put it in .env as SONAR_TOKEN=
@@ -146,7 +168,7 @@ docker compose --profile sonar up -d
 mvn verify sonar:sonar "-Dsonar.token=$env:SONAR_TOKEN"
 ```
 
-Sonar UI shows coverage (from JaCoCo XML), code smells, bugs, and security hotspots. Analysis targets `http://localhost:9000` only.
+After a Sonar run, refresh the Sonar rows in [`QUALITY_REPORT.md`](QUALITY_REPORT.md).
 
 ### Docker images
 
@@ -244,6 +266,7 @@ Attack type mapping: INJECTION → SQL/Command Injection, XSS → Cross-Site Scr
 | `v0.7-rate-limit` | IP rate limit |
 | `v0.8-generator` | CLI generator |
 | `v0.9-platform` | Docs + Dockerfiles |
+| `v1.0-quality` | JaCoCo ≥95% gate + local SonarQube Community |
 
 ## What we learned
 
@@ -251,12 +274,14 @@ Attack type mapping: INJECTION → SQL/Command Injection, XSS → Cross-Site Scr
 - **Two services need clear ownership.** Ingest has no database. Analytics owns Postgres and the score formula. The shared `miniwsa-contracts` jar only holds the JSON shape, so changing how we score attacks does not force a change to the message type.
 - **SQL is a good fit for the stats APIs.** Summary, top attackers, and time buckets are plain queries (`GROUP BY`, `AVG`, `date_bin`). We did not need a separate analytics product for this size of data.
 - **Idempotency matters with Kafka.** The same `eventId` can show up twice (retry, redelivery). We skip insert when the id already exists, so duplicates do not inflate counts.
+- **API tests cover more than thin unit tests for the same path.** MockMvc E2E against the real Spring stack (H2 for analytics) exercises controller → service → repository together; keep unit tests for scoring, enrichment edge cases, and Kafka adapters.
 
 ## Challenges
 
 - **Kafka on Windows Docker.** Getting the host app to talk to Kafka inside Docker was the hardest setup step. The broker must advertise an address the host can reach (`localhost:9092`). Wrong advertised listeners meant produce/consume hung or failed even when the container was healthy.
-- **Postgres-only SQL in tests.** Timeseries uses `date_bin`, which H2 does not support the same way. Unit tests mock that repository method; samples and context tests use H2.
+- **Postgres-only SQL in tests.** Timeseries uses `date_bin`, which H2 does not support the same way. Production uses `PostgresTimeseriesBucketQuery`; the `test` profile uses `InMemoryTimeseriesBucketQuery`.
 - **Host env vars leaking into tests.** A local `SPRING_DATASOURCE_URL` pointed tests at real Postgres while the test profile expected H2. We fixed that by setting the H2 URL on the Spring Boot test annotations.
+- **Hebrew path + OpenAPI codegen.** On some Windows setups, Maven under a non-ASCII project path fails to load generated classes. Build/test from an ASCII copy (e.g. `C:\Temp\miniwsa-build`) when that happens.
 
 ## If we had more time
 
