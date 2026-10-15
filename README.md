@@ -230,6 +230,16 @@ Generator (`sql`/`xss` are same-IP + same-path bursts; `mixed` alternates random
 .\generator\generate.ps1 -Count 20 -Rate 5 -Wave sql -BurstSize 10
 ```
 
+### Seed demo data (Kafka + Postgres + alerts)
+
+With infra and both apps already running, one script loads the current demo dataset: mixed generator traffic through ingest → Kafka → analytics, all rules from [`demo/alert-rules.json`](demo/alert-rules.json), then `POST /demo/alerts/fire` so assignment/smoke rules show **FIRING**:
+
+```powershell
+.\scripts\seed-demo-data.ps1
+```
+
+Defaults to **10,000** mixed events at ~100/s (matches a full local demo volume). Optional flags: `-SkipGenerator`, `-SkipAlerts`, `-SkipFire`, `-EventCount`, `-Rate`. Re-runs skip duplicate alert rules.
+
 Alerts are stored in Postgres and survive restarts. `GET /v1/alerts/evaluate` without `alertId` checks every defined rule:
 
 ```powershell
