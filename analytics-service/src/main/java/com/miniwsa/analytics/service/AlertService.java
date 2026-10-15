@@ -8,6 +8,7 @@ import com.miniwsa.analytics.domain.AlertMetric;
 import com.miniwsa.analytics.domain.AlertWindow;
 import com.miniwsa.analytics.mapper.AlertMapper;
 import com.miniwsa.analytics.repository.SecurityEventRepository;
+import com.miniwsa.analytics.repository.SecurityEventSpecifications;
 import com.miniwsa.contracts.AttackCategory;
 import org.springframework.stereotype.Service;
 
@@ -75,9 +76,12 @@ public class AlertService {
         Instant since = clock.instant().minus(definition.getWindow().getDuration());
         long value;
         if (definition.getMetric() == AlertMetric.UNIQUE_IPS) {
-            value = repository.countDistinctIpsSince(definition.getConfigId(), since);
+            value = repository.countDistinctClientIps(
+                    SecurityEventSpecifications.withFilters(
+                            definition.getConfigId(), since, null, null, null, null));
         } else {
-            value = repository.countSince(definition.getConfigId(), definition.getCategory(), since);
+            value = repository.count(SecurityEventSpecifications.withFilters(
+                    definition.getConfigId(), since, null, definition.getCategory(), null, null));
         }
         return new AlertEvaluationResponse(
                 alertId, value >= definition.getThreshold(), value, definition.getThreshold());

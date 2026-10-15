@@ -11,6 +11,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mapstruct.factory.Mappers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -22,8 +23,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -43,7 +42,7 @@ class AlertServiceTest {
     @Test
     void firesWhenEventCountMeetsThreshold() {
         AlertDefinitionResponse defined = alertService.define(request("event_count", 3, null));
-        when(repository.countSince(eq(14227L), isNull(), any())).thenReturn(3L);
+        when(repository.count(any(Specification.class))).thenReturn(3L);
         AlertEvaluationResponse result = alertService.evaluate(defined.getId());
         assertTrue(result.getFiring());
         assertEquals(3L, result.getValue());
@@ -52,7 +51,7 @@ class AlertServiceTest {
     @Test
     void countsCategoryWhenDefined() {
         AlertDefinitionResponse defined = alertService.define(request("event_count", 2, "INJECTION"));
-        when(repository.countSince(eq(14227L), eq("INJECTION"), any())).thenReturn(4L);
+        when(repository.count(any(Specification.class))).thenReturn(4L);
         AlertEvaluationResponse result = alertService.evaluate(defined.getId());
         assertTrue(result.getFiring());
         assertEquals(4L, result.getValue());
@@ -62,8 +61,8 @@ class AlertServiceTest {
     void evaluateAllReturnsEveryRule() {
         alertService.define(request("event_count", 3, null));
         alertService.define(request("unique_ips", 5, null));
-        when(repository.countSince(eq(14227L), isNull(), any())).thenReturn(1L);
-        when(repository.countDistinctIpsSince(eq(14227L), any())).thenReturn(2L);
+        when(repository.count(any(Specification.class))).thenReturn(1L);
+        when(repository.countDistinctClientIps(any(Specification.class))).thenReturn(2L);
         List<AlertEvaluationResponse> results = alertService.evaluateAll();
         assertEquals(2, results.size());
     }
@@ -71,7 +70,7 @@ class AlertServiceTest {
     @Test
     void doesNotFireBelowThreshold() {
         AlertDefinitionResponse defined = alertService.define(request("unique_ips", 5, null));
-        when(repository.countDistinctIpsSince(eq(14227L), any())).thenReturn(2L);
+        when(repository.countDistinctClientIps(any(Specification.class))).thenReturn(2L);
         AlertEvaluationResponse result = alertService.evaluate(defined.getId());
         assertFalse(result.getFiring());
         assertEquals(2L, result.getValue());
