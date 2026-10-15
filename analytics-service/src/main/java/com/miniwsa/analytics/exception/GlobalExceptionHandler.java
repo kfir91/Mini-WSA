@@ -1,7 +1,7 @@
 package com.miniwsa.analytics.exception;
 
-import com.miniwsa.analytics.dto.ErrorDetail;
-import com.miniwsa.analytics.dto.ErrorResponse;
+import com.miniwsa.analytics.api.ErrorDetail;
+import com.miniwsa.analytics.api.ErrorResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -26,7 +26,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleInvalid(MethodArgumentNotValidException ex) {
         List<ErrorDetail> details = ex.getBindingResult().getFieldErrors().stream()
-                .map(error -> new ErrorDetail(null, error.getField(), error.getDefaultMessage()))
+                .map(error -> {
+                    ErrorDetail d = new ErrorDetail();
+                    d.setField(error.getField());
+                    d.setReason(error.getDefaultMessage());
+                    return d;
+                })
                 .toList();
         return ResponseEntity.badRequest()
                 .body(new ErrorResponse("VALIDATION_ERROR", "Request is invalid", details));

@@ -7,6 +7,10 @@ import jakarta.persistence.Table;
 
 import java.time.Instant;
 
+/**
+ * Persistence model for an enriched security event. Analytics-owned; not an API type.
+ * Accessors are hand-written (JPA + Mockito inline mock maker are fragile with Lombok stubs).
+ */
 @Entity
 @Table(name = "security_events")
 public class SecurityEventEntity {

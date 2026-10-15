@@ -15,6 +15,7 @@ Mini WSA is a local security analytics platform: ingest DLRs, enrich them, store
 - Cache: none (in-memory Bucket4j on analytics read APIs only)
 - Frontend: none
 - Deployment: Docker Compose on Windows localhost. No Kubernetes, Eureka, AWS, or paid brokers.
+- OpenAPI: contract-first YAML under `src/main/resources/open-api/`; `openapi-generator-maven-plugin` on `generate-sources`; Swagger UI serves those YAML files
 
 ## Architecture
 - Style: layered Controller → Service → Manager (only if reused) → Repository/DAO
@@ -23,16 +24,26 @@ Mini WSA is a local security analytics platform: ingest DLRs, enrich them, store
 - ingest-api (`:8081`): HTTP ingest, validation, `receivedAt`, Kafka produce. No database, no DAO, no scoring.
 - analytics-service (`:8080`): consumer, enrichment, PostgreSQL owner, stats/samples/timeseries/alerts, read rate limit.
 - generator: CLI that POSTs to ingest-api. Not a long-running service.
-- contracts: wire enums and `SecurityEventMessage` only. No scoring, no JPA, no Spring.
+- contracts: wire models/enums from OpenAPI only. No scoring, no JPA, no Spring.
+
+## Layer glossary
+- **contract**: shared wire shape (HTTP ingest body + Kafka payload). Generated into `com.miniwsa.contracts`.
+- **api**: per-service HTTP boundary (interfaces + request/response models). Generated into `com.miniwsa.<service>.api`. Controllers implement these interfaces.
+- **domain**: analytics business meaning (AttackType, score weights, alert definitions). Hand-written only. No HTTP/JPA.
+- **entity**: JPA persistence. Hand-written. Never returned from controllers.
+- **mapper**: MapStruct between contract/api and entity/domain.
+- Do **not** create a hand-written `dto/` package for new code (deprecated; replaced by generated api models).
 
 ## Conventions
-- Mapping: manual
+- Mapping: MapStruct (`componentModel = spring`); manual only for awkward one-offs
+- Lombok: preferred on plain helpers; JPA entities may stay hand-written accessors (Mockito inline mock maker + Lombok has been fragile here). Avoid `@Data` on JPA entities.
+- Spring DI: constructor injection
 - Error handling: `GlobalExceptionHandler`; `{ "code", "message", "details": [...] }`; never stack traces or secrets to clients
 - Auth: none in v1
 - Logging: structured logs; no passwords, tokens, or full PII dumps
 
 ## Commands
-- Build: `mvn test`
+- Build: `mvn test` (runs OpenAPI `generate-sources` first)
 - Run tests: `mvn test`
 - Run locally: Compose for Postgres+Kafka; `mvn spring-boot:run` per app (or `java -jar` after `mvn package`).
 
@@ -42,7 +53,8 @@ Keep it simple. OOP/SOLID. Separate HTTP, business logic, persistence, messaging
 ## Known pitfalls
 - Do not add a DAO to ingest-api.
 - Do not put scoring in contracts.
-- Do not share JPA entities or REST DTOs across services.
+- Do not share JPA entities or REST api models across services.
 - Do not classify/score inside the ingest HTTP request; analytics owns that after Kafka.
 - Do not log `POSTGRES_PASSWORD` or other secrets.
 - Do not implement the next story on the current branch.
+- Do not put domain score labels into OpenAPI contracts YAML.

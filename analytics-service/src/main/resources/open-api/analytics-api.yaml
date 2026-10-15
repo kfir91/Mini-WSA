@@ -1,0 +1,432 @@
+openapi: 3.0.3
+info:
+  title: Mini WSA analytics-service
+  version: 0.1.0
+  description: Query enriched security events, stats, timeseries, and in-memory alerts.
+servers:
+  - url: http://localhost:8080
+paths:
+  /v1/stats/summary:
+    get:
+      tags: [Stats]
+      operationId: getSummary
+      summary: Aggregated attack summary
+      parameters:
+        - $ref: '#/components/parameters/ConfigId'
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+      responses:
+        '200':
+          description: Summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SummaryResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /v1/stats/timeseries:
+    get:
+      tags: [Stats]
+      operationId: getTimeseries
+      summary: Event counts over time
+      parameters:
+        - name: interval
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [1m, 5m, 1h]
+        - $ref: '#/components/parameters/ConfigId'
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+      responses:
+        '200':
+          description: Timeseries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeseriesResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /v1/events/samples:
+    get:
+      tags: [Samples]
+      operationId: getSamples
+      summary: Paginated enriched event samples
+      parameters:
+        - $ref: '#/components/parameters/ConfigId'
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: minThreatScore
+          in: query
+          schema:
+            type: integer
+            format: int32
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            format: int32
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            format: int32
+      responses:
+        '200':
+          description: Page of samples
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SamplePageResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /v1/alerts/define:
+    post:
+      tags: [Alerts]
+      operationId: defineAlert
+      summary: Define an in-memory alert rule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DefineAlertRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertDefinitionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /v1/alerts/evaluate:
+    get:
+      tags: [Alerts]
+      operationId: evaluateAlerts
+      summary: Evaluate one or all alerts
+      parameters:
+        - name: alertId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Evaluation results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AlertEvaluationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+components:
+  parameters:
+    ConfigId:
+      name: configId
+      in: query
+      schema:
+        type: integer
+        format: int64
+    From:
+      name: from
+      in: query
+      schema:
+        type: string
+        format: date-time
+    To:
+      name: to
+      in: query
+      schema:
+        type: string
+        format: date-time
+  responses:
+    BadRequest:
+      description: Validation or bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    TooManyRequests:
+      description: Rate limited
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    TimeRange:
+      type: object
+      required: [from, to]
+      properties:
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+    CategoryStats:
+      type: object
+      required: [count, avgThreatScore]
+      properties:
+        count:
+          type: integer
+          format: int64
+        avgThreatScore:
+          type: number
+          format: double
+    AttackerStats:
+      type: object
+      required: [clientIp, count, avgThreatScore]
+      properties:
+        clientIp:
+          type: string
+        count:
+          type: integer
+          format: int64
+        avgThreatScore:
+          type: number
+          format: double
+    PathStats:
+      type: object
+      required: [path, count]
+      properties:
+        path:
+          type: string
+        count:
+          type: integer
+          format: int64
+    SummaryResponse:
+      type: object
+      required: [totalEvents, byCategory, byAction, topAttackers, topTargetedPaths]
+      properties:
+        configId:
+          type: integer
+          format: int64
+          nullable: true
+        timeRange:
+          $ref: '#/components/schemas/TimeRange'
+        totalEvents:
+          type: integer
+          format: int64
+        byCategory:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/CategoryStats'
+        byAction:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+        topAttackers:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttackerStats'
+        topTargetedPaths:
+          type: array
+          items:
+            $ref: '#/components/schemas/PathStats'
+    TimeseriesPoint:
+      type: object
+      required: [bucket, count]
+      properties:
+        bucket:
+          type: string
+          format: date-time
+        count:
+          type: integer
+          format: int64
+    TimeseriesResponse:
+      type: object
+      required: [interval, points]
+      properties:
+        interval:
+          type: string
+        points:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeseriesPoint'
+    SampleEvent:
+      type: object
+      required:
+        - eventId
+        - timestamp
+        - receivedAt
+        - configId
+        - policyId
+        - clientIp
+        - hostname
+        - path
+        - method
+        - statusCode
+        - userAgent
+        - ruleId
+        - ruleName
+        - ruleMessage
+        - severity
+        - category
+        - action
+        - country
+        - city
+        - requestSize
+        - responseSize
+        - attackType
+        - threatScore
+      properties:
+        eventId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        receivedAt:
+          type: string
+          format: date-time
+        configId:
+          type: integer
+          format: int64
+        policyId:
+          type: string
+        clientIp:
+          type: string
+        hostname:
+          type: string
+        path:
+          type: string
+        method:
+          type: string
+        statusCode:
+          type: integer
+          format: int32
+        userAgent:
+          type: string
+        ruleId:
+          type: string
+        ruleName:
+          type: string
+        ruleMessage:
+          type: string
+        severity:
+          type: string
+        category:
+          type: string
+        action:
+          type: string
+        country:
+          type: string
+        city:
+          type: string
+        requestSize:
+          type: integer
+          format: int32
+        responseSize:
+          type: integer
+          format: int32
+        attackType:
+          type: string
+        threatScore:
+          type: integer
+          format: int32
+    SamplePageResponse:
+      type: object
+      required: [items, limit, offset, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SampleEvent'
+        limit:
+          type: integer
+          format: int32
+        offset:
+          type: integer
+          format: int32
+        total:
+          type: integer
+          format: int64
+    DefineAlertRequest:
+      type: object
+      required: [metric, window, threshold]
+      properties:
+        configId:
+          type: integer
+          format: int64
+          nullable: true
+        category:
+          type: string
+          nullable: true
+        metric:
+          type: string
+        window:
+          type: string
+        threshold:
+          type: integer
+          format: int32
+          minimum: 1
+    AlertDefinitionResponse:
+      type: object
+      required: [id, metric, window, threshold]
+      properties:
+        id:
+          type: string
+        configId:
+          type: integer
+          format: int64
+          nullable: true
+        category:
+          type: string
+          nullable: true
+        metric:
+          type: string
+        window:
+          type: string
+        threshold:
+          type: integer
+          format: int32
+    AlertEvaluationResponse:
+      type: object
+      required: [alertId, firing, value, threshold]
+      properties:
+        alertId:
+          type: string
+        firing:
+          type: boolean
+        value:
+          type: integer
+          format: int64
+        threshold:
+          type: integer
+          format: int32
+    ErrorDetail:
+      type: object
+      properties:
+        index:
+          type: integer
+          format: int32
+          nullable: true
+        field:
+          type: string
+          nullable: true
+        reason:
+          type: string
+          nullable: true
+    ErrorResponse:
+      type: object
+      required: [code, message, details]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'

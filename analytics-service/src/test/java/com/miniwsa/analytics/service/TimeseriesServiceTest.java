@@ -1,6 +1,6 @@
 package com.miniwsa.analytics.service;
 
-import com.miniwsa.analytics.dto.response.TimeseriesResponse;
+import com.miniwsa.analytics.api.TimeseriesResponse;
 import com.miniwsa.analytics.repository.SecurityEventRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

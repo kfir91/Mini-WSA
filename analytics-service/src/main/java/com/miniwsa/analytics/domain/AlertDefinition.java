@@ -1,15 +1,19 @@
-package com.miniwsa.analytics.alert;
+package com.miniwsa.analytics.domain;
 
+/**
+ * In-memory alert rule owned by analytics (not persisted).
+ */
 public class AlertDefinition {
 
     private final String id;
     private final Long configId;
     private final String category;
-    private final String metric;
-    private final String window;
+    private final AlertMetric metric;
+    private final AlertWindow window;
     private final int threshold;
 
-    public AlertDefinition(String id, Long configId, String category, String metric, String window, int threshold) {
+    public AlertDefinition(
+            String id, Long configId, String category, AlertMetric metric, AlertWindow window, int threshold) {
         this.id = id;
         this.configId = configId;
         this.category = category;
@@ -30,11 +34,11 @@ public class AlertDefinition {
         return category;
     }
 
-    public String getMetric() {
+    public AlertMetric getMetric() {
         return metric;
     }
 
-    public String getWindow() {
+    public AlertWindow getWindow() {
         return window;
     }
 

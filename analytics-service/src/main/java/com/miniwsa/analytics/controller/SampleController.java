@@ -1,16 +1,18 @@
 package com.miniwsa.analytics.controller;
 
-import com.miniwsa.analytics.dto.response.SamplePageResponse;
+import com.miniwsa.analytics.api.SamplePageResponse;
+import com.miniwsa.analytics.api.SamplesApi;
 import com.miniwsa.analytics.service.SampleService;
-import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
 
+/**
+ * Samples HTTP adapter implementing the generated OpenAPI interface.
+ */
 @RestController
-public class SampleController {
+public class SampleController implements SamplesApi {
 
     private final SampleService sampleService;
 
@@ -18,16 +20,17 @@ public class SampleController {
         this.sampleService = sampleService;
     }
 
-    @GetMapping("/v1/events/samples")
-    public SamplePageResponse samples(
-            @RequestParam(required = false) Long configId,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
-            @RequestParam(required = false) String category,
-            @RequestParam(required = false) String action,
-            @RequestParam(required = false) Integer minThreatScore,
-            @RequestParam(required = false) Integer limit,
-            @RequestParam(required = false) Integer offset) {
-        return sampleService.samples(configId, from, to, category, action, minThreatScore, limit, offset);
+    @Override
+    public ResponseEntity<SamplePageResponse> getSamples(
+            Long configId,
+            Instant from,
+            Instant to,
+            String category,
+            String action,
+            Integer minThreatScore,
+            Integer limit,
+            Integer offset) {
+        return ResponseEntity.ok(
+                sampleService.samples(configId, from, to, category, action, minThreatScore, limit, offset));
     }
 }

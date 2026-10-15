@@ -1,13 +1,16 @@
 package com.miniwsa.analytics.service;
 
-import com.miniwsa.analytics.dto.response.TimeseriesPointDto;
-import com.miniwsa.analytics.dto.response.TimeseriesResponse;
+import com.miniwsa.analytics.api.TimeseriesPoint;
+import com.miniwsa.analytics.api.TimeseriesResponse;
 import com.miniwsa.analytics.repository.SecurityEventRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.Map;
 
+/**
+ * Buckets event counts into fixed time intervals.
+ */
 @Service
 public class TimeseriesService {
 
@@ -28,7 +31,7 @@ public class TimeseriesService {
             throw new IllegalArgumentException("interval must be one of 1m, 5m, 1h");
         }
         var points = repository.timeseries(pgInterval, configId, from, to).stream()
-                .map(row -> new TimeseriesPointDto(row.getBucket(), row.getCount()))
+                .map(row -> new TimeseriesPoint(row.getBucket(), row.getCount()))
                 .toList();
         return new TimeseriesResponse(interval, points);
     }

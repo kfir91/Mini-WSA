@@ -1,10 +1,10 @@
 package com.miniwsa.analytics.service;
 
-import com.miniwsa.analytics.dto.response.AttackerStatsDto;
-import com.miniwsa.analytics.dto.response.CategoryStatsDto;
-import com.miniwsa.analytics.dto.response.PathStatsDto;
-import com.miniwsa.analytics.dto.response.SummaryResponse;
-import com.miniwsa.analytics.dto.response.TimeRangeDto;
+import com.miniwsa.analytics.api.AttackerStats;
+import com.miniwsa.analytics.api.CategoryStats;
+import com.miniwsa.analytics.api.PathStats;
+import com.miniwsa.analytics.api.SummaryResponse;
+import com.miniwsa.analytics.api.TimeRange;
 import com.miniwsa.analytics.repository.SecurityEventRepository;
 import org.springframework.stereotype.Service;
 
@@ -13,6 +13,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Builds aggregated attack summaries from persisted enriched events.
+ */
 @Service
 public class StatsService {
 
@@ -24,21 +27,24 @@ public class StatsService {
 
     public SummaryResponse summary(Long configId, Instant from, Instant to) {
         long total = repository.countForSummary(configId, from, to);
-        Map<String, CategoryStatsDto> byCategory = new LinkedHashMap<>();
+        Map<String, CategoryStats> byCategory = new LinkedHashMap<>();
         for (SecurityEventRepository.CategoryAggregate row : repository.aggregateByCategory(configId, from, to)) {
-            byCategory.put(row.getCategory(), new CategoryStatsDto(row.getCount(), round(row.getAvgThreatScore())));
+            byCategory.put(row.getCategory(), new CategoryStats(row.getCount(), round(row.getAvgThreatScore())));
         }
         Map<String, Long> byAction = new LinkedHashMap<>();
         for (SecurityEventRepository.ActionAggregate row : repository.aggregateByAction(configId, from, to)) {
             byAction.put(row.getAction(), row.getCount());
         }
-        List<AttackerStatsDto> attackers = repository.topAttackers(configId, from, to).stream()
-                .map(row -> new AttackerStatsDto(row.getClientIp(), row.getCount(), round(row.getAvgThreatScore())))
+        List<AttackerStats> attackers = repository.topAttackers(configId, from, to).stream()
+                .map(row -> new AttackerStats(row.getClientIp(), row.getCount(), round(row.getAvgThreatScore())))
                 .toList();
-        List<PathStatsDto> paths = repository.topPaths(configId, from, to).stream()
-                .map(row -> new PathStatsDto(row.getPath(), row.getCount()))
+        List<PathStats> paths = repository.topPaths(configId, from, to).stream()
+                .map(row -> new PathStats(row.getPath(), row.getCount()))
                 .toList();
-        return new SummaryResponse(configId, new TimeRangeDto(from, to), total, byCategory, byAction, attackers, paths);
+        SummaryResponse response = new SummaryResponse(total, byCategory, byAction, attackers, paths);
+        response.setConfigId(configId);
+        response.setTimeRange(new TimeRange(from, to));
+        return response;
     }
 
     private static double round(Double value) {

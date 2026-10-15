@@ -1,8 +1,8 @@
 package com.miniwsa.analytics.service;
 
-import com.miniwsa.analytics.dto.response.SampleEventDto;
-import com.miniwsa.analytics.dto.response.SamplePageResponse;
+import com.miniwsa.analytics.api.SamplePageResponse;
 import com.miniwsa.analytics.entity.SecurityEventEntity;
+import com.miniwsa.analytics.mapper.SampleEventMapper;
 import com.miniwsa.analytics.repository.OffsetPageRequest;
 import com.miniwsa.analytics.repository.SecurityEventRepository;
 import com.miniwsa.analytics.repository.SecurityEventSpecifications;
@@ -12,6 +12,9 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 
+/**
+ * Paginated read of enriched events for investigation samples.
+ */
 @Service
 public class SampleService {
 
@@ -19,9 +22,11 @@ public class SampleService {
     private static final int MAX_LIMIT = 100;
 
     private final SecurityEventRepository repository;
+    private final SampleEventMapper sampleEventMapper;
 
-    public SampleService(SecurityEventRepository repository) {
+    public SampleService(SecurityEventRepository repository, SampleEventMapper sampleEventMapper) {
         this.repository = repository;
+        this.sampleEventMapper = sampleEventMapper;
     }
 
     public SamplePageResponse samples(
@@ -41,36 +46,9 @@ public class SampleService {
                 SecurityEventSpecifications.withFilters(configId, from, to, category, action, minThreatScore),
                 pageable);
         return new SamplePageResponse(
-                result.getContent().stream().map(SampleService::toDto).toList(),
+                result.getContent().stream().map(sampleEventMapper::toApi).toList(),
                 resolvedLimit,
                 resolvedOffset,
                 result.getTotalElements());
-    }
-
-    private static SampleEventDto toDto(SecurityEventEntity entity) {
-        return new SampleEventDto(
-                entity.getEventId(),
-                entity.getEventTimestamp(),
-                entity.getReceivedAt(),
-                entity.getConfigId(),
-                entity.getPolicyId(),
-                entity.getClientIp(),
-                entity.getHostname(),
-                entity.getPath(),
-                entity.getMethod(),
-                entity.getStatusCode(),
-                entity.getUserAgent(),
-                entity.getRuleId(),
-                entity.getRuleName(),
-                entity.getRuleMessage(),
-                entity.getSeverity(),
-                entity.getCategory(),
-                entity.getAction(),
-                entity.getCountry(),
-                entity.getCity(),
-                entity.getRequestSize(),
-                entity.getResponseSize(),
-                entity.getAttackType(),
-                entity.getThreatScore());
     }
 }
