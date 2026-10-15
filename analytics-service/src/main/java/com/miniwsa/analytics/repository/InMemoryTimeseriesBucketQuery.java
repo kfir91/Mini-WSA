@@ -1,6 +1,7 @@
 package com.miniwsa.analytics.repository;
 
 import com.miniwsa.analytics.entity.SecurityEventEntity;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
@@ -16,13 +17,10 @@ import java.util.stream.Collectors;
  */
 @Component
 @Profile("test")
+@RequiredArgsConstructor
 public class InMemoryTimeseriesBucketQuery implements TimeseriesBucketQuery {
 
     private final SecurityEventRepository repository;
-
-    public InMemoryTimeseriesBucketQuery(SecurityEventRepository repository) {
-        this.repository = repository;
-    }
 
     @Override
     public List<SecurityEventRepository.TimeBucketAggregate> query(

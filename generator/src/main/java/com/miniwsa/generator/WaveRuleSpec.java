@@ -3,6 +3,8 @@ package com.miniwsa.generator;
 import com.miniwsa.contracts.AttackCategory;
 import com.miniwsa.contracts.RuleMessage;
 import com.miniwsa.contracts.Severity;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
 import java.util.EnumMap;
 import java.util.Map;
@@ -10,6 +12,8 @@ import java.util.Map;
 /**
  * Rule template used when synthesizing events for a wire category.
  */
+@Getter
+@RequiredArgsConstructor
 public enum WaveRuleSpec {
 
     INJECTION(AttackCategory.INJECTION, "950001", "SQL_INJECTION", "SQL Injection Attack Detected", Severity.CRITICAL),
@@ -33,14 +37,6 @@ public enum WaveRuleSpec {
     private final String name;
     private final String message;
     private final Severity severity;
-
-    WaveRuleSpec(AttackCategory category, String id, String name, String message, Severity severity) {
-        this.category = category;
-        this.id = id;
-        this.name = name;
-        this.message = message;
-        this.severity = severity;
-    }
 
     public static WaveRuleSpec from(AttackCategory category) {
         WaveRuleSpec spec = BY_CATEGORY.get(category);

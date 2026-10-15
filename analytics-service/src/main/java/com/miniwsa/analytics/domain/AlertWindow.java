@@ -1,29 +1,21 @@
 package com.miniwsa.analytics.domain;
 
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+
 import java.time.Duration;
 
 /**
  * Supported alert evaluation windows.
  */
+@Getter
+@RequiredArgsConstructor
 public enum AlertWindow {
     FIVE_MINUTES("5m", Duration.ofMinutes(5)),
     ONE_HOUR("1h", Duration.ofHours(1));
 
     private final String wireValue;
     private final Duration duration;
-
-    AlertWindow(String wireValue, Duration duration) {
-        this.wireValue = wireValue;
-        this.duration = duration;
-    }
-
-    public String getWireValue() {
-        return wireValue;
-    }
-
-    public Duration getDuration() {
-        return duration;
-    }
 
     public static AlertWindow fromWire(String value) {
         for (AlertWindow window : values()) {

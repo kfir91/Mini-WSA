@@ -12,8 +12,8 @@ import com.miniwsa.analytics.repository.AlertDefinitionRepository;
 import com.miniwsa.analytics.repository.SecurityEventRepository;
 import com.miniwsa.analytics.repository.SecurityEventSpecifications;
 import com.miniwsa.contracts.AttackCategory;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,26 +25,15 @@ import java.util.UUID;
 /**
  * Defines and evaluates persisted alert rules against stored events.
  */
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class AlertService {
-
-    private static final Logger log = LoggerFactory.getLogger(AlertService.class);
 
     private final AlertDefinitionRepository alertDefinitionRepository;
     private final SecurityEventRepository securityEventRepository;
     private final AlertMapper alertMapper;
     private final Clock clock;
-
-    public AlertService(
-            AlertDefinitionRepository alertDefinitionRepository,
-            SecurityEventRepository securityEventRepository,
-            AlertMapper alertMapper,
-            Clock clock) {
-        this.alertDefinitionRepository = alertDefinitionRepository;
-        this.securityEventRepository = securityEventRepository;
-        this.alertMapper = alertMapper;
-        this.clock = clock;
-    }
 
     @Transactional
     public AlertDefinitionResponse define(DefineAlertRequest request) {

@@ -1,21 +1,18 @@
 package com.miniwsa.analytics.domain;
 
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+
 /**
  * Supported alert metrics.
  */
+@Getter
+@RequiredArgsConstructor
 public enum AlertMetric {
     EVENT_COUNT("event_count"),
     UNIQUE_IPS("unique_ips");
 
     private final String wireValue;
-
-    AlertMetric(String wireValue) {
-        this.wireValue = wireValue;
-    }
-
-    public String getWireValue() {
-        return wireValue;
-    }
 
     public static AlertMetric fromWire(String value) {
         for (AlertMetric metric : values()) {

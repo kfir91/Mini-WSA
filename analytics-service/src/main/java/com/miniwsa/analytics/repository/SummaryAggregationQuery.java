@@ -7,6 +7,7 @@ import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Component;
 
@@ -18,15 +19,11 @@ import java.util.List;
  * Summary aggregates via Criteria API so optional null filters stay typed on Postgres and H2.
  */
 @Component
+@RequiredArgsConstructor
 public class SummaryAggregationQuery {
 
     private final SecurityEventRepository repository;
     private final EntityManager entityManager;
-
-    public SummaryAggregationQuery(SecurityEventRepository repository, EntityManager entityManager) {
-        this.repository = repository;
-        this.entityManager = entityManager;
-    }
 
     public long count(Long configId, Instant from, Instant to) {
         return repository.count(SecurityEventSpecifications.withFilters(configId, from, to, null, null, null));

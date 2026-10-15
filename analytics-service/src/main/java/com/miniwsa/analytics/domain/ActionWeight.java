@@ -1,6 +1,8 @@
 package com.miniwsa.analytics.domain;
 
 import com.miniwsa.contracts.Action;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
 import java.util.EnumMap;
 import java.util.Map;
@@ -8,6 +10,8 @@ import java.util.Map;
 /**
  * Domain score points for a wire {@link Action}. Kept out of contracts.
  */
+@Getter
+@RequiredArgsConstructor
 public enum ActionWeight {
 
     DENY(Action.DENY, 20),
@@ -24,15 +28,6 @@ public enum ActionWeight {
 
     private final Action action;
     private final int points;
-
-    ActionWeight(Action action, int points) {
-        this.action = action;
-        this.points = points;
-    }
-
-    public int getPoints() {
-        return points;
-    }
 
     public static ActionWeight from(Action action) {
         ActionWeight weight = BY_ACTION.get(action);

@@ -6,6 +6,7 @@ import com.miniwsa.analytics.mapper.SampleEventMapper;
 import com.miniwsa.analytics.repository.OffsetPageRequest;
 import com.miniwsa.analytics.repository.SecurityEventRepository;
 import com.miniwsa.analytics.repository.SecurityEventSpecifications;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -16,6 +17,7 @@ import java.time.Instant;
  * Paginated read of enriched events for investigation samples.
  */
 @Service
+@RequiredArgsConstructor
 public class SampleService {
 
     private static final int DEFAULT_LIMIT = 20;
@@ -23,11 +25,6 @@ public class SampleService {
 
     private final SecurityEventRepository repository;
     private final SampleEventMapper sampleEventMapper;
-
-    public SampleService(SecurityEventRepository repository, SampleEventMapper sampleEventMapper) {
-        this.repository = repository;
-        this.sampleEventMapper = sampleEventMapper;
-    }
 
     public SamplePageResponse samples(
             Long configId,

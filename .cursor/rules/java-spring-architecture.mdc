@@ -45,7 +45,8 @@ Persistence only: queries, CRUD, filtering, pagination, sorting, efficient retri
 MapStruct mappers in `mapper/` convert contract/api ↔ entity/domain. No business logic in mappers.
 
 ## Dependency Injection
-- Constructor injection with `final` fields (`@RequiredArgsConstructor` is fine).
+- Constructor injection with `final` fields. Prefer `@RequiredArgsConstructor` when the constructor only wires collaborators (no `@Value` params).
+- Keep an explicit constructor when any parameter needs `@Value` (or other non-Lombok annotations).
 - Avoid: manual construction of dependencies in business classes, static global state, service locators.
 
 ## Package Structure (baseline)

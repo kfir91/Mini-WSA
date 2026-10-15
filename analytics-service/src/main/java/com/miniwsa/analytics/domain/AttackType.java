@@ -1,6 +1,8 @@
 package com.miniwsa.analytics.domain;
 
 import com.miniwsa.contracts.AttackCategory;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
 import java.util.EnumMap;
 import java.util.Map;
@@ -9,6 +11,8 @@ import java.util.Map;
  * Analytics-owned display label for a wire {@link AttackCategory}.
  * Kept out of miniwsa-contracts so the message type stays wire-only.
  */
+@Getter
+@RequiredArgsConstructor
 public enum AttackType {
 
     SQL_COMMAND_INJECTION(AttackCategory.INJECTION, "SQL/Command Injection"),
@@ -29,19 +33,6 @@ public enum AttackType {
 
     private final AttackCategory category;
     private final String label;
-
-    AttackType(AttackCategory category, String label) {
-        this.category = category;
-        this.label = label;
-    }
-
-    public String getLabel() {
-        return label;
-    }
-
-    public AttackCategory getCategory() {
-        return category;
-    }
 
     public static AttackType from(AttackCategory category) {
         AttackType type = BY_CATEGORY.get(category);

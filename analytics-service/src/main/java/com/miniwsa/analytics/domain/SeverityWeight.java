@@ -1,6 +1,8 @@
 package com.miniwsa.analytics.domain;
 
 import com.miniwsa.contracts.Severity;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
 import java.util.EnumMap;
 import java.util.Map;
@@ -8,6 +10,8 @@ import java.util.Map;
 /**
  * Domain score points for a wire {@link Severity}. Kept out of contracts.
  */
+@Getter
+@RequiredArgsConstructor
 public enum SeverityWeight {
 
     CRITICAL(Severity.CRITICAL, 40),
@@ -25,15 +29,6 @@ public enum SeverityWeight {
 
     private final Severity severity;
     private final int points;
-
-    SeverityWeight(Severity severity, int points) {
-        this.severity = severity;
-        this.points = points;
-    }
-
-    public int getPoints() {
-        return points;
-    }
 
     public static SeverityWeight from(Severity severity) {
         SeverityWeight weight = BY_SEVERITY.get(severity);

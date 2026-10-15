@@ -17,6 +17,7 @@ import org.mapstruct.factory.Mappers;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -41,8 +42,8 @@ class EventEnrichmentServiceTest {
         service = new EventEnrichmentService(
                 repository,
                 new EnrichmentManager(),
-                Mappers.getMapper(SecurityEventMapper.class),
-                Duration.ofMinutes(10));
+                Mappers.getMapper(SecurityEventMapper.class));
+        ReflectionTestUtils.setField(service, "repeatOffenderWindow", Duration.ofMinutes(10));
     }
 
     @Test
