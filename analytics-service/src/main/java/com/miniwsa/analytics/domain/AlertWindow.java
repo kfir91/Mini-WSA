@@ -3,7 +3,7 @@ package com.miniwsa.analytics.domain;
 import java.time.Duration;
 
 /**
- * Supported in-memory alert evaluation windows.
+ * Supported alert evaluation windows.
  */
 public enum AlertWindow {
     FIVE_MINUTES("5m", Duration.ofMinutes(5)),

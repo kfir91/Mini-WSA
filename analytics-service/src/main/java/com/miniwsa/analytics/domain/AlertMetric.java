@@ -1,7 +1,7 @@
 package com.miniwsa.analytics.domain;
 
 /**
- * Supported in-memory alert metrics.
+ * Supported alert metrics.
  */
 public enum AlertMetric {
     EVENT_COUNT("event_count"),

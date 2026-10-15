@@ -1,5 +1,6 @@
 package com.miniwsa.analytics.controller;
 
+import com.miniwsa.analytics.repository.AlertDefinitionRepository;
 import com.miniwsa.analytics.repository.SecurityEventRepository;
 import com.miniwsa.analytics.support.SecurityEventFixtures;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,6 +20,7 @@ import java.time.Instant;
 
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -41,11 +43,15 @@ class AnalyticsApiE2ETest {
     private SecurityEventRepository repository;
 
     @Autowired
+    private AlertDefinitionRepository alertDefinitionRepository;
+
+    @Autowired
     private ObjectMapper objectMapper;
 
     @BeforeEach
     void seed() {
         repository.deleteAll();
+        alertDefinitionRepository.deleteAll();
         Instant now = Instant.now();
         repository.save(SecurityEventFixtures.event(
                 "evt-a", "INJECTION", "DENY", 80, now.minus(Duration.ofMinutes(30))));
@@ -132,12 +138,44 @@ class AnalyticsApiE2ETest {
         JsonNode body = objectMapper.readTree(created.getResponse().getContentAsString());
         String alertId = body.get("id").asText();
 
+        assertTrue(alertDefinitionRepository.findById(alertId).isPresent());
+
         mockMvc.perform(get("/v1/alerts/evaluate").param("alertId", alertId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].alertId").value(alertId))
                 .andExpect(jsonPath("$[0].firing").value(true))
                 .andExpect(jsonPath("$[0].value").value(2))
                 .andExpect(jsonPath("$[0].threshold").value(2));
+    }
+
+    @Test
+    void alertsEvaluateAllReturnsEveryPersistedRule() throws Exception {
+        mockMvc.perform(post("/v1/alerts/define")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "configId": 14227,
+                                  "metric": "event_count",
+                                  "window": "1h",
+                                  "threshold": 1
+                                }
+                                """))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/v1/alerts/define")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "configId": 14227,
+                                  "metric": "unique_ips",
+                                  "window": "1h",
+                                  "threshold": 1
+                                }
+                                """))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/v1/alerts/evaluate"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(2)));
     }
 
     @Test

@@ -39,7 +39,7 @@ Java 17+, Maven 3.8+, Docker Desktop, and a free local stack (PostgreSQL 16 + Ka
 |---|---|---|---|
 | `miniwsa-contracts` | — | Wire models/enums from OpenAPI (`SecurityEventMessage`, severity/action/category) | Scoring, JPA, Spring, REST query DTOs |
 | `ingest-api` | 8081 | Validate + stamp `receivedAt` + Kafka produce; error schemas | Database, classify/score, alerts |
-| `analytics-service` | 8080 | Kafka consume, domain enrich, Postgres, read APIs, in-memory alerts, rate limit on stats/samples | Ingest HTTP, shared REST types with ingest |
+| `analytics-service` | 8080 | Kafka consume, domain enrich, Postgres, read APIs, persisted alerts, rate limit on stats/samples | Ingest HTTP, shared REST types with ingest |
 | `generator` | — | CLI synthetic waves using contracts jar | Persistence, OpenAPI codegen |
 
 ### Layers inside each Spring app
@@ -178,7 +178,7 @@ Generator (`sql`/`xss` are same-IP + same-path bursts; `mixed` alternates random
 .\generator\generate.ps1 -Count 20 -Rate 5 -Wave sql -BurstSize 10
 ```
 
-Alerts (in-memory; lost on restart). `GET /v1/alerts/evaluate` without `alertId` checks every defined rule:
+Alerts are stored in Postgres and survive restarts. `GET /v1/alerts/evaluate` without `alertId` checks every defined rule:
 
 ```powershell
 $alert = Invoke-RestMethod -Method Post -Uri http://localhost:8080/v1/alerts/define -ContentType application/json -Body '{"configId":14227,"category":"INJECTION","metric":"event_count","window":"5m","threshold":10}'
@@ -189,7 +189,7 @@ Stats and samples APIs are limited to **100 requests per IP per minute** (429 wh
 
 ## Storage
 
-PostgreSQL is the system of record for enriched events. It gives durable SQL aggregations (`GROUP BY`, `date_bin`, distinct IPs) without a paid warehouse. Kafka is the ingest buffer: it decouples HTTP accept from scoring and lets poison messages go to a DLQ. That split keeps ingest-api from owning a schema and keeps analytics as the only writer.
+PostgreSQL is the system of record for enriched events and alert definitions. It gives durable SQL aggregations (`GROUP BY`, `date_bin`, distinct IPs) without a paid warehouse. Kafka is the ingest buffer: it decouples HTTP accept from scoring and lets poison messages go to a DLQ. That split keeps ingest-api from owning a schema and keeps analytics as the only writer.
 
 ## Threat score
 
@@ -228,14 +228,12 @@ Attack type mapping: INJECTION → SQL/Command Injection, XSS → Cross-Site Scr
 
 - **Kafka on Windows Docker.** Getting the host app to talk to Kafka inside Docker was the hardest setup step. The broker must advertise an address the host can reach (`localhost:9092`). Wrong advertised listeners meant produce/consume hung or failed even when the container was healthy.
 - **Postgres-only SQL in tests.** Timeseries uses `date_bin`, which H2 does not support the same way. Unit tests mock that repository method; samples and context tests use H2.
-- **Alerts are only in memory.** Defined alerts live in a map inside the process. Restart analytics-service and they are gone. That was fine for the bonus feature, but it is not production-ready storage.
 - **Host env vars leaking into tests.** A local `SPRING_DATASOURCE_URL` pointed tests at real Postgres while the test profile expected H2. We fixed that by setting the H2 URL on the Spring Boot test annotations.
 
 ## If we had more time
 
 Platform and reliability:
 
-- Save alerts in Postgres (or another store) so they survive restarts.
 - Run ingest and analytics as Compose services too, with Kafka listeners that work for containers as well as the host (Adminer and Kafka UI are already in Compose).
 - Add an end-to-end test: post an event to ingest, wait for the consumer, assert a row and a summary count.
 - Build a small web page that charts `/v1/stats/timeseries` and shows `/v1/stats/summary`.

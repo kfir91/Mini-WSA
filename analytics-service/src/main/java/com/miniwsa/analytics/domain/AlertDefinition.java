@@ -1,7 +1,7 @@
 package com.miniwsa.analytics.domain;
 
 /**
- * In-memory alert rule owned by analytics (not persisted).
+ * Alert rule owned by analytics (persisted in Postgres).
  */
 public class AlertDefinition {
 
