@@ -18,6 +18,8 @@ spring:
 miniwsa:
   enrichment:
     repeat-offender-window: 10m
+  rate-limit:
+    requests-per-minute: 10000
   kafka:
     topic-raw: security-events.raw
     topic-dlq: security-events.dlq
