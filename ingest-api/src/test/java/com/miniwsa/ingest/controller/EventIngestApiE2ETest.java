@@ -102,4 +102,31 @@ class EventIngestApiE2ETest {
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.code").value("BROKER_UNAVAILABLE"));
     }
+
+    @Test
+    void nullBodyReturns400() throws Exception {
+        mockMvc.perform(post("/v1/events/ingest")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("null"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void nonObjectBodyReturns400() throws Exception {
+        mockMvc.perform(post("/v1/events/ingest")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("42"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void unreadableJsonReturns400() throws Exception {
+        mockMvc.perform(post("/v1/events/ingest")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
 }

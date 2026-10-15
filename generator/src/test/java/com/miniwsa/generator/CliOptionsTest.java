@@ -3,6 +3,7 @@ package com.miniwsa.generator;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class CliOptionsTest {
 
@@ -22,5 +23,32 @@ class CliOptionsTest {
         assertEquals("sql", options.getWave());
         assertEquals(7L, options.getConfigId());
         assertEquals(40, options.getBurstSize());
+    }
+
+    @Test
+    void defaultsWhenNoArgs() {
+        CliOptions options = CliOptions.parse(new String[]{});
+        assertEquals(10, options.getCount());
+        assertEquals("mixed", options.getWave());
+    }
+
+    @Test
+    void rejectsUnknownFlag() {
+        assertThrows(IllegalArgumentException.class, () -> CliOptions.parse(new String[]{"--nope"}));
+    }
+
+    @Test
+    void rejectsMissingValue() {
+        assertThrows(IllegalArgumentException.class, () -> CliOptions.parse(new String[]{"--count"}));
+    }
+
+    @Test
+    void rejectsNonPositiveValues() {
+        assertThrows(IllegalArgumentException.class,
+                () -> CliOptions.parse(new String[]{"--count", "0"}));
+        assertThrows(IllegalArgumentException.class,
+                () -> CliOptions.parse(new String[]{"--rate", "0"}));
+        assertThrows(IllegalArgumentException.class,
+                () -> CliOptions.parse(new String[]{"--burst-size", "0"}));
     }
 }

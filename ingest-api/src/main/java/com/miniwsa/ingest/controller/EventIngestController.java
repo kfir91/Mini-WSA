@@ -8,6 +8,7 @@ import com.miniwsa.ingest.api.ErrorDetail;
 import com.miniwsa.ingest.api.EventsApi;
 import com.miniwsa.ingest.exception.IngestValidationException;
 import com.miniwsa.ingest.service.EventIngestService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
@@ -19,15 +20,11 @@ import java.util.List;
  * Thin HTTP adapter for event ingest; publishes to Kafka via {@link EventIngestService}.
  */
 @RestController
+@RequiredArgsConstructor
 public class EventIngestController implements EventsApi {
 
     private final EventIngestService eventIngestService;
     private final ObjectMapper objectMapper;
-
-    public EventIngestController(EventIngestService eventIngestService, ObjectMapper objectMapper) {
-        this.eventIngestService = eventIngestService;
-        this.objectMapper = objectMapper;
-    }
 
     @Override
     public ResponseEntity<Void> ingestEvents(JsonNode body) throws Exception {
@@ -70,7 +67,7 @@ public class EventIngestController implements EventsApi {
 
     private static String rootMessage(Throwable ex) {
         Throwable current = ex;
-        while (current.getCause() != null && current.getCause() != current) {
+        while (current.getCause() != null) {
             current = current.getCause();
         }
         return current.getMessage() == null ? "Invalid event JSON" : current.getMessage();

@@ -4,15 +4,22 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.Instant;
 
 /**
  * Persistence model for an enriched security event. Analytics-owned; not an API type.
- * Accessors are hand-written (JPA + Mockito inline mock maker are fragile with Lombok stubs).
  */
 @Entity
 @Table(name = "security_events")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class SecurityEventEntity {
 
     @Id
@@ -84,188 +91,4 @@ public class SecurityEventEntity {
 
     @Column(name = "threat_score", nullable = false)
     private Integer threatScore;
-
-    public String getEventId() {
-        return eventId;
-    }
-
-    public void setEventId(String eventId) {
-        this.eventId = eventId;
-    }
-
-    public Instant getEventTimestamp() {
-        return eventTimestamp;
-    }
-
-    public void setEventTimestamp(Instant eventTimestamp) {
-        this.eventTimestamp = eventTimestamp;
-    }
-
-    public Instant getReceivedAt() {
-        return receivedAt;
-    }
-
-    public void setReceivedAt(Instant receivedAt) {
-        this.receivedAt = receivedAt;
-    }
-
-    public Long getConfigId() {
-        return configId;
-    }
-
-    public void setConfigId(Long configId) {
-        this.configId = configId;
-    }
-
-    public String getPolicyId() {
-        return policyId;
-    }
-
-    public void setPolicyId(String policyId) {
-        this.policyId = policyId;
-    }
-
-    public String getClientIp() {
-        return clientIp;
-    }
-
-    public void setClientIp(String clientIp) {
-        this.clientIp = clientIp;
-    }
-
-    public String getHostname() {
-        return hostname;
-    }
-
-    public void setHostname(String hostname) {
-        this.hostname = hostname;
-    }
-
-    public String getPath() {
-        return path;
-    }
-
-    public void setPath(String path) {
-        this.path = path;
-    }
-
-    public String getMethod() {
-        return method;
-    }
-
-    public void setMethod(String method) {
-        this.method = method;
-    }
-
-    public Integer getStatusCode() {
-        return statusCode;
-    }
-
-    public void setStatusCode(Integer statusCode) {
-        this.statusCode = statusCode;
-    }
-
-    public String getUserAgent() {
-        return userAgent;
-    }
-
-    public void setUserAgent(String userAgent) {
-        this.userAgent = userAgent;
-    }
-
-    public String getRuleId() {
-        return ruleId;
-    }
-
-    public void setRuleId(String ruleId) {
-        this.ruleId = ruleId;
-    }
-
-    public String getRuleName() {
-        return ruleName;
-    }
-
-    public void setRuleName(String ruleName) {
-        this.ruleName = ruleName;
-    }
-
-    public String getRuleMessage() {
-        return ruleMessage;
-    }
-
-    public void setRuleMessage(String ruleMessage) {
-        this.ruleMessage = ruleMessage;
-    }
-
-    public String getSeverity() {
-        return severity;
-    }
-
-    public void setSeverity(String severity) {
-        this.severity = severity;
-    }
-
-    public String getCategory() {
-        return category;
-    }
-
-    public void setCategory(String category) {
-        this.category = category;
-    }
-
-    public String getAction() {
-        return action;
-    }
-
-    public void setAction(String action) {
-        this.action = action;
-    }
-
-    public String getCountry() {
-        return country;
-    }
-
-    public void setCountry(String country) {
-        this.country = country;
-    }
-
-    public String getCity() {
-        return city;
-    }
-
-    public void setCity(String city) {
-        this.city = city;
-    }
-
-    public Integer getRequestSize() {
-        return requestSize;
-    }
-
-    public void setRequestSize(Integer requestSize) {
-        this.requestSize = requestSize;
-    }
-
-    public Integer getResponseSize() {
-        return responseSize;
-    }
-
-    public void setResponseSize(Integer responseSize) {
-        this.responseSize = responseSize;
-    }
-
-    public String getAttackType() {
-        return attackType;
-    }
-
-    public void setAttackType(String attackType) {
-        this.attackType = attackType;
-    }
-
-    public Integer getThreatScore() {
-        return threatScore;
-    }
-
-    public void setThreatScore(Integer threatScore) {
-        this.threatScore = threatScore;
-    }
 }

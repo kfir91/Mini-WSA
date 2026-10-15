@@ -1,5 +1,6 @@
 package com.miniwsa.analytics.repository;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
@@ -8,13 +9,10 @@ import java.util.List;
 
 @Component
 @Profile("!test")
+@RequiredArgsConstructor
 public class PostgresTimeseriesBucketQuery implements TimeseriesBucketQuery {
 
     private final SecurityEventRepository repository;
-
-    public PostgresTimeseriesBucketQuery(SecurityEventRepository repository) {
-        this.repository = repository;
-    }
 
     @Override
     public List<SecurityEventRepository.TimeBucketAggregate> query(

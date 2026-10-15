@@ -45,13 +45,18 @@ class AnalyticsRateLimitE2ETest {
 
     @Test
     void statsAndSamplesAreRateLimitedButAlertsAreNot() throws Exception {
-        mockMvc.perform(get("/v1/stats/summary"))
+        mockMvc.perform(get("/v1/stats/summary")
+                        .header("X-Forwarded-For", "198.51.100.7, 10.0.0.1"))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(get("/v1/stats/summary"))
+        mockMvc.perform(get("/v1/stats/summary")
+                        .header("X-Forwarded-For", "198.51.100.7, 10.0.0.1"))
                 .andExpect(status().isTooManyRequests())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.code").value("RATE_LIMITED"));
+
+        mockMvc.perform(get("/v1/events/samples"))
+                .andExpect(status().isOk());
 
         mockMvc.perform(post("/v1/alerts/define")
                         .contentType(MediaType.APPLICATION_JSON)

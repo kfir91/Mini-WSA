@@ -2,6 +2,7 @@ package com.miniwsa.analytics.messaging.producer;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.beans.factory.annotation.Value;
@@ -11,20 +12,14 @@ import org.springframework.stereotype.Component;
 
 @Component
 @Profile("!test")
+@RequiredArgsConstructor
 public class DlqPublisher {
 
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
-    private final String dlqTopic;
 
-    public DlqPublisher(
-            KafkaTemplate<String, String> kafkaTemplate,
-            ObjectMapper objectMapper,
-            @Value("${miniwsa.kafka.topic-dlq}") String dlqTopic) {
-        this.kafkaTemplate = kafkaTemplate;
-        this.objectMapper = objectMapper;
-        this.dlqTopic = dlqTopic;
-    }
+    @Value("${miniwsa.kafka.topic-dlq}")
+    private String dlqTopic;
 
     public void publish(ConsumerRecord<?, ?> record, Exception error) {
         String payload = serialize(record.value());
@@ -43,7 +38,7 @@ public class DlqPublisher {
         try {
             return objectMapper.writeValueAsString(value);
         } catch (JsonProcessingException ex) {
-            return value.toString();
+            return String.valueOf(value);
         }
     }
 }

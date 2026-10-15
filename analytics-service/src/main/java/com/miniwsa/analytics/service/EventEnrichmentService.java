@@ -4,6 +4,7 @@ import com.miniwsa.analytics.manager.EnrichmentManager;
 import com.miniwsa.analytics.mapper.SecurityEventMapper;
 import com.miniwsa.analytics.repository.SecurityEventRepository;
 import com.miniwsa.contracts.SecurityEventMessage;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -16,23 +17,15 @@ import java.time.Instant;
  * Classifies, scores, and stores Kafka security events idempotently by eventId.
  */
 @Service
+@RequiredArgsConstructor
 public class EventEnrichmentService {
 
     private final SecurityEventRepository repository;
     private final EnrichmentManager enrichmentManager;
     private final SecurityEventMapper securityEventMapper;
-    private final Duration repeatOffenderWindow;
 
-    public EventEnrichmentService(
-            SecurityEventRepository repository,
-            EnrichmentManager enrichmentManager,
-            SecurityEventMapper securityEventMapper,
-            @Value("${miniwsa.enrichment.repeat-offender-window}") Duration repeatOffenderWindow) {
-        this.repository = repository;
-        this.enrichmentManager = enrichmentManager;
-        this.securityEventMapper = securityEventMapper;
-        this.repeatOffenderWindow = repeatOffenderWindow;
-    }
+    @Value("${miniwsa.enrichment.repeat-offender-window}")
+    private Duration repeatOffenderWindow;
 
     @Transactional
     public void enrichAndStore(SecurityEventMessage message) {

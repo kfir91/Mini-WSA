@@ -36,8 +36,15 @@ Mini WSA is a local security analytics platform: ingest DLRs, enrich them, store
 
 ## Conventions
 - Mapping: MapStruct (`componentModel = spring`); manual only for awkward one-offs
-- Lombok: preferred on plain helpers; JPA entities may stay hand-written accessors (Mockito inline mock maker + Lombok has been fragile here). Avoid `@Data` on JPA entities.
-- Spring DI: constructor injection
+- Lombok (JPA-safe):
+  - Entities: `@Getter` `@Setter` `@NoArgsConstructor` (optional `@AllArgsConstructor` for fixtures). **Never `@Data` / `@EqualsAndHashCode` on entities.**
+  - Immutable domain: `@Getter` `@AllArgsConstructor`
+  - Enums with fields: `@Getter` `@RequiredArgsConstructor`
+  - Spring beans with only `final` deps: `@RequiredArgsConstructor`
+  - Mix: `@RequiredArgsConstructor` for `final` collaborators + field `@Value` for config (non-final)
+  - Logging: prefer `@Slf4j` over hand-written `LoggerFactory`
+  - Do not edit OpenAPI-generated `api/` / contracts models
+- Spring DI: constructor injection via `@RequiredArgsConstructor` for collaborators; `@Value` on fields when mixed with Lombok
 - Error handling: `GlobalExceptionHandler`; `{ "code", "message", "details": [...] }`; never stack traces or secrets to clients
 - Auth: none in v1
 - Logging: structured logs; no passwords, tokens, or full PII dumps

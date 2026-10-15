@@ -6,6 +6,7 @@ import com.miniwsa.analytics.api.PathStats;
 import com.miniwsa.analytics.api.SummaryResponse;
 import com.miniwsa.analytics.api.TimeRange;
 import com.miniwsa.analytics.repository.SummaryAggregationQuery;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -17,13 +18,10 @@ import java.util.Map;
  * Builds aggregated attack summaries from persisted enriched events.
  */
 @Service
+@RequiredArgsConstructor
 public class StatsService {
 
     private final SummaryAggregationQuery summaryQuery;
-
-    public StatsService(SummaryAggregationQuery summaryQuery) {
-        this.summaryQuery = summaryQuery;
-    }
 
     public SummaryResponse summary(Long configId, Instant from, Instant to) {
         long total = summaryQuery.count(configId, from, to);

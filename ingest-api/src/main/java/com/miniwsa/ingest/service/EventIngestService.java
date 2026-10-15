@@ -6,6 +6,7 @@ import com.miniwsa.ingest.client.KafkaEventProducer;
 import com.miniwsa.ingest.exception.IngestValidationException;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -17,15 +18,11 @@ import java.util.Set;
  * Validates wire events, stamps {@code receivedAt}, and publishes to Kafka.
  */
 @Service
+@RequiredArgsConstructor
 public class EventIngestService {
 
     private final Validator validator;
     private final KafkaEventProducer producer;
-
-    public EventIngestService(Validator validator, KafkaEventProducer producer) {
-        this.validator = validator;
-        this.producer = producer;
-    }
 
     public void ingest(List<SecurityEventMessage> events) {
         if (events == null || events.isEmpty()) {

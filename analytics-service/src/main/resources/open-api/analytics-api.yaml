@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Mini WSA analytics-service
   version: 0.1.0
-  description: Query enriched security events, stats, timeseries, and in-memory alerts.
+  description: Query enriched security events, stats, timeseries, and persisted alerts.
 servers:
   - url: http://localhost:8080
 paths:
@@ -93,7 +93,7 @@ paths:
     post:
       tags: [Alerts]
       operationId: defineAlert
-      summary: Define an in-memory alert rule
+      summary: Define a persisted alert rule
       requestBody:
         required: true
         content:

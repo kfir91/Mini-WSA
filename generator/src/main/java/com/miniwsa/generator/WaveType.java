@@ -1,22 +1,22 @@
 package com.miniwsa.generator;
 
 import com.miniwsa.contracts.AttackCategory;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Generator attack-wave mode. Named waves reuse the same IP and path for a burst.
  */
+@Getter
+@RequiredArgsConstructor
 public enum WaveType {
     SQL(AttackCategory.INJECTION),
     XSS(AttackCategory.XSS),
     MIXED(null);
 
     private final AttackCategory fixedCategory;
-
-    WaveType(AttackCategory fixedCategory) {
-        this.fixedCategory = fixedCategory;
-    }
 
     public static WaveType fromCli(String value) {
         try {

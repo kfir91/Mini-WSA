@@ -6,36 +6,36 @@ import com.miniwsa.analytics.api.DefineAlertRequest;
 import com.miniwsa.analytics.domain.AlertDefinition;
 import com.miniwsa.analytics.domain.AlertMetric;
 import com.miniwsa.analytics.domain.AlertWindow;
+import com.miniwsa.analytics.entity.AlertDefinitionEntity;
 import com.miniwsa.analytics.mapper.AlertMapper;
+import com.miniwsa.analytics.repository.AlertDefinitionRepository;
 import com.miniwsa.analytics.repository.SecurityEventRepository;
 import com.miniwsa.analytics.repository.SecurityEventSpecifications;
 import com.miniwsa.contracts.AttackCategory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Defines and evaluates in-memory alert rules against stored events.
+ * Defines and evaluates persisted alert rules against stored events.
  */
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class AlertService {
 
-    private final Map<String, AlertDefinition> store = new ConcurrentHashMap<>();
-    private final SecurityEventRepository repository;
+    private final AlertDefinitionRepository alertDefinitionRepository;
+    private final SecurityEventRepository securityEventRepository;
     private final AlertMapper alertMapper;
     private final Clock clock;
 
-    public AlertService(SecurityEventRepository repository, AlertMapper alertMapper, Clock clock) {
-        this.repository = repository;
-        this.alertMapper = alertMapper;
-        this.clock = clock;
-    }
-
+    @Transactional
     public AlertDefinitionResponse define(DefineAlertRequest request) {
         AlertMetric metric = AlertMetric.fromWire(request.getMetric());
         AlertWindow window = AlertWindow.fromWire(request.getWindow());
@@ -56,34 +56,39 @@ public class AlertService {
                 metric,
                 window,
                 request.getThreshold());
-        store.put(definition.getId(), definition);
-        return alertMapper.toResponse(definition);
+        AlertDefinitionEntity saved = alertDefinitionRepository.save(alertMapper.toEntity(definition, clock.instant()));
+        log.info("Defined alert {}", saved.getId());
+        return alertMapper.toResponse(alertMapper.toDomain(saved));
     }
 
+    @Transactional(readOnly = true)
     public List<AlertEvaluationResponse> evaluateAll() {
-        return store.keySet().stream().map(this::evaluateOne).toList();
+        return alertDefinitionRepository.findAll().stream()
+                .map(alertMapper::toDomain)
+                .map(this::evaluateDefinition)
+                .toList();
     }
 
+    @Transactional(readOnly = true)
     public AlertEvaluationResponse evaluate(String alertId) {
-        return evaluateOne(alertId);
+        AlertDefinition definition = alertDefinitionRepository.findById(alertId)
+                .map(alertMapper::toDomain)
+                .orElseThrow(() -> new IllegalStateException("Unknown alert id"));
+        return evaluateDefinition(definition);
     }
 
-    private AlertEvaluationResponse evaluateOne(String alertId) {
-        AlertDefinition definition = store.get(alertId);
-        if (definition == null) {
-            throw new IllegalStateException("Unknown alert id");
-        }
+    private AlertEvaluationResponse evaluateDefinition(AlertDefinition definition) {
         Instant since = clock.instant().minus(definition.getWindow().getDuration());
         long value;
         if (definition.getMetric() == AlertMetric.UNIQUE_IPS) {
-            value = repository.countDistinctClientIps(
+            value = securityEventRepository.countDistinctClientIps(
                     SecurityEventSpecifications.withFilters(
                             definition.getConfigId(), since, null, null, null, null));
         } else {
-            value = repository.count(SecurityEventSpecifications.withFilters(
+            value = securityEventRepository.count(SecurityEventSpecifications.withFilters(
                     definition.getConfigId(), since, null, definition.getCategory(), null, null));
         }
         return new AlertEvaluationResponse(
-                alertId, value >= definition.getThreshold(), value, definition.getThreshold());
+                definition.getId(), value >= definition.getThreshold(), value, definition.getThreshold());
     }
 }

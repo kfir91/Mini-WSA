@@ -1,8 +1,13 @@
 package com.miniwsa.analytics.domain;
 
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+
 /**
- * In-memory alert rule owned by analytics (not persisted).
+ * Alert rule owned by analytics (persisted in Postgres).
  */
+@Getter
+@AllArgsConstructor
 public class AlertDefinition {
 
     private final String id;
@@ -11,38 +16,4 @@ public class AlertDefinition {
     private final AlertMetric metric;
     private final AlertWindow window;
     private final int threshold;
-
-    public AlertDefinition(
-            String id, Long configId, String category, AlertMetric metric, AlertWindow window, int threshold) {
-        this.id = id;
-        this.configId = configId;
-        this.category = category;
-        this.metric = metric;
-        this.window = window;
-        this.threshold = threshold;
-    }
-
-    public String getId() {
-        return id;
-    }
-
-    public Long getConfigId() {
-        return configId;
-    }
-
-    public String getCategory() {
-        return category;
-    }
-
-    public AlertMetric getMetric() {
-        return metric;
-    }
-
-    public AlertWindow getWindow() {
-        return window;
-    }
-
-    public int getThreshold() {
-        return threshold;
-    }
 }
