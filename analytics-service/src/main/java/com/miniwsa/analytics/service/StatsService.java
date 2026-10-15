@@ -5,7 +5,7 @@ import com.miniwsa.analytics.api.CategoryStats;
 import com.miniwsa.analytics.api.PathStats;
 import com.miniwsa.analytics.api.SummaryResponse;
 import com.miniwsa.analytics.api.TimeRange;
-import com.miniwsa.analytics.repository.SecurityEventRepository;
+import com.miniwsa.analytics.repository.SummaryAggregationQuery;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -19,26 +19,26 @@ import java.util.Map;
 @Service
 public class StatsService {
 
-    private final SecurityEventRepository repository;
+    private final SummaryAggregationQuery summaryQuery;
 
-    public StatsService(SecurityEventRepository repository) {
-        this.repository = repository;
+    public StatsService(SummaryAggregationQuery summaryQuery) {
+        this.summaryQuery = summaryQuery;
     }
 
     public SummaryResponse summary(Long configId, Instant from, Instant to) {
-        long total = repository.countForSummary(configId, from, to);
+        long total = summaryQuery.count(configId, from, to);
         Map<String, CategoryStats> byCategory = new LinkedHashMap<>();
-        for (SecurityEventRepository.CategoryAggregate row : repository.aggregateByCategory(configId, from, to)) {
+        for (var row : summaryQuery.byCategory(configId, from, to)) {
             byCategory.put(row.getCategory(), new CategoryStats(row.getCount(), round(row.getAvgThreatScore())));
         }
         Map<String, Long> byAction = new LinkedHashMap<>();
-        for (SecurityEventRepository.ActionAggregate row : repository.aggregateByAction(configId, from, to)) {
+        for (var row : summaryQuery.byAction(configId, from, to)) {
             byAction.put(row.getAction(), row.getCount());
         }
-        List<AttackerStats> attackers = repository.topAttackers(configId, from, to).stream()
+        List<AttackerStats> attackers = summaryQuery.topAttackers(configId, from, to).stream()
                 .map(row -> new AttackerStats(row.getClientIp(), row.getCount(), round(row.getAvgThreatScore())))
                 .toList();
-        List<PathStats> paths = repository.topPaths(configId, from, to).stream()
+        List<PathStats> paths = summaryQuery.topPaths(configId, from, to).stream()
                 .map(row -> new PathStats(row.getPath(), row.getCount()))
                 .toList();
         SummaryResponse response = new SummaryResponse(total, byCategory, byAction, attackers, paths);

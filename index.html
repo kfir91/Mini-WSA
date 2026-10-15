@@ -81,12 +81,38 @@
     .status.wait { background: #2a3344; color: var(--muted); }
     footer { margin-top: 1.25rem; color: var(--muted); font-size: 0.85rem; line-height: 1.5; }
     code { font-family: ui-monospace, Consolas, monospace; font-size: 0.85em; }
+    button.rule {
+      cursor: pointer;
+      font: inherit;
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: var(--accent);
+      background: #121821;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 0.25rem 0.55rem;
+    }
+    button.rule:hover { border-color: var(--accent); }
+    .note { color: var(--muted); font-size: 0.85rem; margin: 0 0 0.75rem; line-height: 1.45; }
+    #alert-log {
+      margin: 0.5rem 0 0.85rem;
+      padding: 0.65rem 0.75rem;
+      background: #121821;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 0.8rem;
+      color: var(--muted);
+      white-space: pre-wrap;
+      display: none;
+    }
+    #alert-log.show { display: block; }
   </style>
 </head>
 <body>
   <main>
     <h1>Mini WSA</h1>
-    <p class="lead">Local links for apps and infra. Open this file from the repo root. Status probes run in your browser against <code>localhost</code>.</p>
+    <p class="lead">Local links for apps and infra. Prefer <a href="http://localhost:8080/">http://localhost:8080/</a> (same hub, so alert Define buttons work). Or open this file from the repo root. Status probes hit <code>localhost</code>.</p>
 
     <section>
       <h2>Applications</h2>
@@ -116,24 +142,90 @@
         <li>
           <span class="status wait" data-check="http://localhost:8080/v1/stats/summary">…</span>
           <a href="http://localhost:8080/v1/stats/summary">GET /v1/stats/summary</a>
-          <span class="meta">Aggregated attack summary</span>
+          <span class="meta">All configs</span>
+        </li>
+        <li>
+          <a href="http://localhost:8080/v1/stats/summary?configId=14227">GET /v1/stats/summary?configId=14227</a>
+          <span class="meta">Filter by config</span>
         </li>
         <li>
           <span class="status wait" data-check="http://localhost:8080/v1/events/samples?limit=5">…</span>
-          <a href="http://localhost:8080/v1/events/samples?limit=5">GET /v1/events/samples</a>
-          <span class="meta">Enriched event samples</span>
+          <a href="http://localhost:8080/v1/events/samples?limit=5">GET /v1/events/samples?limit=5</a>
+          <span class="meta">Recent samples</span>
+        </li>
+        <li>
+          <a href="http://localhost:8080/v1/events/samples?category=INJECTION&limit=10">samples?category=INJECTION</a>
+          <span class="meta">SQL / injection</span>
+        </li>
+        <li>
+          <a href="http://localhost:8080/v1/events/samples?category=XSS&limit=10">samples?category=XSS</a>
+          <span class="meta">XSS events</span>
+        </li>
+        <li>
+          <a href="http://localhost:8080/v1/events/samples?action=DENY&limit=10">samples?action=DENY</a>
+          <span class="meta">Denied only</span>
+        </li>
+        <li>
+          <a href="http://localhost:8080/v1/events/samples?minThreatScore=50&limit=10">samples?minThreatScore=50</a>
+          <span class="meta">High threat</span>
         </li>
         <li>
           <span class="status wait" data-check="http://localhost:8080/v1/stats/timeseries?interval=5m">…</span>
-          <a href="http://localhost:8080/v1/stats/timeseries?interval=5m">GET /v1/stats/timeseries?interval=5m</a>
+          <a href="http://localhost:8080/v1/stats/timeseries?interval=1m">timeseries?interval=1m</a>
+          <a href="http://localhost:8080/v1/stats/timeseries?interval=5m">5m</a>
+          <a href="http://localhost:8080/v1/stats/timeseries?interval=1h">1h</a>
           <span class="meta">Bucketed counts</span>
         </li>
         <li>
-          <span class="port">POST</span>
-          <a href="http://localhost:8080/swagger-ui/index.html">/v1/alerts/define · evaluate</a>
-          <span class="meta">In-memory alerts (use Swagger)</span>
+          <a href="http://localhost:8080/v1/stats/timeseries?interval=5m&configId=14227">timeseries?interval=5m&amp;configId=14227</a>
+          <span class="meta">Timeseries for one config</span>
         </li>
       </ul>
+    </section>
+
+    <section>
+      <h2>Alerts (in-memory rules)</h2>
+      <p class="note">
+        Define a rule (POST), then open evaluate to see <code>firing</code> / <code>value</code> / <code>threshold</code>.
+        Metrics: <code>event_count</code>, <code>unique_ips</code> · Windows: <code>5m</code>, <code>1h</code>.
+        Optional filters: <code>configId</code>, <code>category</code>.
+      </p>
+      <ul>
+        <li>
+          <span class="status wait" data-check="http://localhost:8080/v1/alerts/evaluate">…</span>
+          <a href="http://localhost:8080/v1/alerts/evaluate">GET /v1/alerts/evaluate</a>
+          <span class="meta">Evaluate all defined rules (JSON)</span>
+        </li>
+        <li>
+          <a href="http://localhost:8080/swagger-ui/index.html#/Alerts/defineAlert">Swagger · defineAlert</a>
+          <span class="meta">POST /v1/alerts/define</span>
+        </li>
+        <li>
+          <a href="http://localhost:8080/swagger-ui/index.html#/Alerts/evaluateAlerts">Swagger · evaluateAlerts</a>
+          <span class="meta">GET with optional <code>alertId</code></span>
+        </li>
+        <li>
+          <button type="button" class="rule" data-rule='{"metric":"event_count","window":"1h","threshold":1}'>Define: any events · 1h · ≥1</button>
+          <span class="meta">Broad event_count</span>
+        </li>
+        <li>
+          <button type="button" class="rule" data-rule='{"configId":14227,"category":"INJECTION","metric":"event_count","window":"1h","threshold":2}'>Define: INJECTION · config 14227 · 1h · ≥2</button>
+          <span class="meta">Custom category + config</span>
+        </li>
+        <li>
+          <button type="button" class="rule" data-rule='{"category":"XSS","metric":"event_count","window":"5m","threshold":1}'>Define: XSS · 5m · ≥1</button>
+          <span class="meta">Short window</span>
+        </li>
+        <li>
+          <button type="button" class="rule" data-rule='{"metric":"unique_ips","window":"1h","threshold":1}'>Define: unique_ips · 1h · ≥1</button>
+          <span class="meta">Distinct attackers</span>
+        </li>
+        <li>
+          <button type="button" class="rule" data-rule='{"configId":14227,"metric":"unique_ips","window":"5m","threshold":3}'>Define: unique_ips · config 14227 · 5m · ≥3</button>
+          <span class="meta">Stricter unique IPs</span>
+        </li>
+      </ul>
+      <pre id="alert-log" aria-live="polite"></pre>
     </section>
 
     <section>
@@ -214,6 +306,42 @@
       }
     }
     document.querySelectorAll('[data-check]').forEach(probe);
+
+    const alertLog = document.getElementById('alert-log');
+    function showAlertLog(text) {
+      alertLog.textContent = text;
+      alertLog.classList.add('show');
+    }
+
+    document.querySelectorAll('button.rule').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const body = btn.getAttribute('data-rule');
+        showAlertLog('POST /v1/alerts/define …');
+        try {
+          const res = await fetch('http://localhost:8080/v1/alerts/define', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body
+          });
+          const text = await res.text();
+          let parsed;
+          try { parsed = JSON.parse(text); } catch (_) { parsed = null; }
+          if (!res.ok) {
+            showAlertLog('Define failed (' + res.status + '):\n' + text +
+              '\n\nIf this is CORS (opened as file://), use Swagger · defineAlert instead.');
+            return;
+          }
+          const id = parsed && parsed.id;
+          showAlertLog('Created alert ' + id + '\n' + text);
+          if (id) {
+            window.open('http://localhost:8080/v1/alerts/evaluate?alertId=' + encodeURIComponent(id), '_blank');
+          }
+        } catch (e) {
+          showAlertLog('Could not reach analytics (' + (e && e.message ? e.message : e) +
+            ').\nOpen Swagger · defineAlert, or serve this page from http://localhost:8080/.');
+        }
+      });
+    });
   </script>
 </body>
 </html>

@@ -2,6 +2,7 @@ package com.miniwsa.analytics.service;
 
 import com.miniwsa.analytics.api.SummaryResponse;
 import com.miniwsa.analytics.repository.SecurityEventRepository;
+import com.miniwsa.analytics.repository.SummaryAggregationQuery;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,24 +23,24 @@ import static org.mockito.Mockito.when;
 class StatsServiceTest {
 
     @Mock
-    private SecurityEventRepository repository;
+    private SummaryAggregationQuery summaryQuery;
 
     private StatsService statsService;
 
     @BeforeEach
     void setUp() {
-        statsService = new StatsService(repository);
+        statsService = new StatsService(summaryQuery);
     }
 
     @Test
     void buildsSummaryFromDaoAggregates() {
         Instant from = Instant.parse("2026-05-20T00:00:00Z");
         Instant to = Instant.parse("2026-05-21T00:00:00Z");
-        when(repository.countForSummary(14227L, from, to)).thenReturn(3L);
-        when(repository.aggregateByCategory(14227L, from, to)).thenReturn(List.of(category("INJECTION", 2L, 70.0)));
-        when(repository.aggregateByAction(14227L, from, to)).thenReturn(List.of(action("DENY", 2L), action("ALERT", 1L)));
-        when(repository.topAttackers(14227L, from, to)).thenReturn(List.of(attacker("203.0.113.42", 2L, 80.0)));
-        when(repository.topPaths(14227L, from, to)).thenReturn(List.of(path("/login", 2L)));
+        when(summaryQuery.count(14227L, from, to)).thenReturn(3L);
+        when(summaryQuery.byCategory(14227L, from, to)).thenReturn(List.of(category("INJECTION", 2L, 70.0)));
+        when(summaryQuery.byAction(14227L, from, to)).thenReturn(List.of(action("DENY", 2L), action("ALERT", 1L)));
+        when(summaryQuery.topAttackers(14227L, from, to)).thenReturn(List.of(attacker("203.0.113.42", 2L, 80.0)));
+        when(summaryQuery.topPaths(14227L, from, to)).thenReturn(List.of(path("/login", 2L)));
 
         SummaryResponse response = statsService.summary(14227L, from, to);
 
@@ -55,11 +56,11 @@ class StatsServiceTest {
 
     @Test
     void omittedConfigIdAggregatesAll() {
-        when(repository.countForSummary(isNull(), any(), any())).thenReturn(10L);
-        when(repository.aggregateByCategory(isNull(), any(), any())).thenReturn(List.of());
-        when(repository.aggregateByAction(isNull(), any(), any())).thenReturn(List.of());
-        when(repository.topAttackers(isNull(), any(), any())).thenReturn(List.of());
-        when(repository.topPaths(isNull(), any(), any())).thenReturn(List.of());
+        when(summaryQuery.count(isNull(), any(), any())).thenReturn(10L);
+        when(summaryQuery.byCategory(isNull(), any(), any())).thenReturn(List.of());
+        when(summaryQuery.byAction(isNull(), any(), any())).thenReturn(List.of());
+        when(summaryQuery.topAttackers(isNull(), any(), any())).thenReturn(List.of());
+        when(summaryQuery.topPaths(isNull(), any(), any())).thenReturn(List.of());
         SummaryResponse response = statsService.summary(null, null, null);
         assertNull(response.getConfigId());
         assertEquals(10L, response.getTotalEvents());
