@@ -49,26 +49,23 @@ public class EventFactory {
             ip = pick(IPS);
             path = pick(PATHS);
         }
-        GeoLocationMessage geo = new GeoLocationMessage();
-        geo.setCountry("CN");
-        geo.setCity("Beijing");
-        SecurityEventMessage event = new SecurityEventMessage();
-        event.setEventId("evt-" + UUID.randomUUID());
-        event.setTimestamp(Instant.now());
-        event.setConfigId(configId);
-        event.setPolicyId("pol_web1");
-        event.setClientIp(ip);
-        event.setHostname("www.example.com");
-        event.setPath(path);
-        event.setMethod("POST");
-        event.setStatusCode(403);
-        event.setUserAgent("MiniWSA-Generator/1.0");
-        event.setRule(WaveRuleSpec.from(category).toRule());
-        event.setAction(Action.DENY);
-        event.setGeoLocation(geo);
-        event.setRequestSize(1024);
-        event.setResponseSize(256);
-        return event;
+        return SecurityEventMessage.builder()
+                .eventId("evt-" + UUID.randomUUID())
+                .timestamp(Instant.now())
+                .configId(configId)
+                .policyId("pol_web1")
+                .clientIp(ip)
+                .hostname("www.example.com")
+                .path(path)
+                .method("POST")
+                .statusCode(403)
+                .userAgent("MiniWSA-Generator/1.0")
+                .rule(WaveRuleSpec.from(category).toRule())
+                .action(Action.DENY)
+                .geoLocation(GeoLocationMessage.builder().country("CN").city("Beijing").build())
+                .requestSize(1024)
+                .responseSize(256)
+                .build();
     }
 
     private boolean inMixedBurst(int index) {

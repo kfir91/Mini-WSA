@@ -184,29 +184,13 @@ components:
         responseSize:
           type: integer
           format: int32
+    ErrorCode:
+      $ref: '../../../../miniwsa-contracts/src/main/resources/open-api/api-errors.yaml#/components/schemas/ErrorCode'
+    ErrorMessage:
+      $ref: '../../../../miniwsa-contracts/src/main/resources/open-api/api-errors.yaml#/components/schemas/ErrorMessage'
+    ErrorReason:
+      $ref: '../../../../miniwsa-contracts/src/main/resources/open-api/api-errors.yaml#/components/schemas/ErrorReason'
     ErrorDetail:
-      type: object
-      properties:
-        index:
-          type: integer
-          format: int32
-          nullable: true
-        field:
-          type: string
-          nullable: true
-        reason:
-          type: string
-          nullable: true
+      $ref: '../../../../miniwsa-contracts/src/main/resources/open-api/api-errors.yaml#/components/schemas/ErrorDetail'
     ErrorResponse:
-      type: object
-      required: [code, message, details]
-      properties:
-        code:
-          type: string
-          example: VALIDATION_ERROR
-        message:
-          type: string
-        details:
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorDetail'
+      $ref: '../../../../miniwsa-contracts/src/main/resources/open-api/api-errors.yaml#/components/schemas/ErrorResponse'

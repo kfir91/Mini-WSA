@@ -1,0 +1,7 @@
+{
+  "configId": 14227,
+  "category": "INJECTION",
+  "metric": "event_count",
+  "window": "1h",
+  "threshold": 2
+}

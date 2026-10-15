@@ -1,0 +1,6 @@
+{
+  "configId": 14227,
+  "metric": "event_count",
+  "window": "5m",
+  "threshold": 10
+}

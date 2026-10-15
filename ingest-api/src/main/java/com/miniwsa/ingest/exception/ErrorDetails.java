@@ -1,20 +1,22 @@
 package com.miniwsa.ingest.exception;
 
-import com.miniwsa.ingest.api.ErrorDetail;
+import com.miniwsa.contracts.ApiErrors;
+import com.miniwsa.contracts.ErrorDetail;
+import com.miniwsa.contracts.ErrorReason;
 
 /**
- * Factory for OpenAPI {@link ErrorDetail} instances used across controller and service.
+ * Ingest-facing factory over the shared OpenAPI {@link ErrorDetail} catalog.
  */
 public final class ErrorDetails {
 
     private ErrorDetails() {
     }
 
+    public static ErrorDetail of(Integer index, String field, ErrorReason reason) {
+        return ApiErrors.detail(index, field, reason);
+    }
+
     public static ErrorDetail of(Integer index, String field, String reason) {
-        ErrorDetail detail = new ErrorDetail();
-        detail.setIndex(index);
-        detail.setField(field);
-        detail.setReason(reason);
-        return detail;
+        return ApiErrors.detail(index, field, reason);
     }
 }

@@ -1,5 +1,7 @@
 package com.miniwsa.analytics.domain;
 
+import com.miniwsa.contracts.ApiException;
+import com.miniwsa.contracts.ErrorMessage;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
@@ -20,6 +22,6 @@ public enum AlertMetric {
                 return metric;
             }
         }
-        throw new IllegalArgumentException("metric must be event_count or unique_ips");
+        throw ApiException.validation(ErrorMessage.INVALID_METRIC);
     }
 }

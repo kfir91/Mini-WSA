@@ -1,0 +1,7 @@
+{
+  "configId": 14227,
+  "category": "XSS",
+  "metric": "event_count",
+  "window": "5m",
+  "threshold": 7
+}

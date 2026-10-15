@@ -3,6 +3,7 @@ package com.miniwsa.ingest.controller;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.miniwsa.contracts.ErrorReason;
 import com.miniwsa.contracts.SecurityEventMessage;
 import com.miniwsa.ingest.api.EventsApi;
 import com.miniwsa.ingest.exception.ErrorDetails;
@@ -30,12 +31,14 @@ public class EventIngestController implements EventsApi {
     @Override
     public ResponseEntity<Void> ingestEvents(JsonNode body) throws Exception {
         if (body == null || body.isNull() || body.isMissingNode()) {
-            throw new IngestValidationException(List.of(ErrorDetails.of(null, "body", "Request body is required")));
+            throw new IngestValidationException(List.of(
+                    ErrorDetails.of(null, "body", ErrorReason.BODY_REQUIRED)));
         }
         List<SecurityEventMessage> events = new ArrayList<>();
         if (body.isArray()) {
             if (body.isEmpty()) {
-                throw new IngestValidationException(List.of(ErrorDetails.of(null, "body", "Event array must not be empty")));
+                throw new IngestValidationException(List.of(
+                        ErrorDetails.of(null, "body", ErrorReason.EVENT_ARRAY_EMPTY)));
             }
             int index = 0;
             for (JsonNode node : body) {
@@ -44,7 +47,8 @@ public class EventIngestController implements EventsApi {
         } else if (body.isObject()) {
             events.add(parseEvent(body, null));
         } else {
-            throw new IngestValidationException(List.of(ErrorDetails.of(null, "body", "Body must be a JSON object or array")));
+            throw new IngestValidationException(List.of(
+                    ErrorDetails.of(null, "body", ErrorReason.BODY_NOT_OBJECT_OR_ARRAY)));
         }
         eventIngestService.ingest(events);
         return ResponseEntity.status(HttpStatus.CREATED).build();
@@ -55,7 +59,10 @@ public class EventIngestController implements EventsApi {
             return objectMapper.treeToValue(node, SecurityEventMessage.class);
         } catch (JsonProcessingException ex) {
             throw new IngestValidationException(List.of(
-                    ErrorDetails.of(index, "body", ThrowableMessages.rootMessageOr(ex, "Invalid event JSON"))));
+                    ErrorDetails.of(
+                            index,
+                            "body",
+                            ThrowableMessages.rootMessageOr(ex, ErrorReason.INVALID_EVENT_JSON.getValue()))));
         }
     }
 }

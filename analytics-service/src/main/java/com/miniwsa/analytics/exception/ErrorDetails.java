@@ -1,19 +1,22 @@
 package com.miniwsa.analytics.exception;
 
-import com.miniwsa.analytics.api.ErrorDetail;
+import com.miniwsa.contracts.ApiErrors;
+import com.miniwsa.contracts.ErrorDetail;
+import com.miniwsa.contracts.ErrorReason;
 
 /**
- * Factory for OpenAPI {@link ErrorDetail} used by the analytics exception handler.
+ * Analytics-facing factory over the shared OpenAPI {@link ErrorDetail} catalog.
  */
 public final class ErrorDetails {
 
     private ErrorDetails() {
     }
 
+    public static ErrorDetail of(String field, ErrorReason reason) {
+        return ApiErrors.detail(field, reason);
+    }
+
     public static ErrorDetail of(String field, String reason) {
-        ErrorDetail detail = new ErrorDetail();
-        detail.setField(field);
-        detail.setReason(reason);
-        return detail;
+        return ApiErrors.detail(field, reason);
     }
 }

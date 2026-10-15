@@ -22,8 +22,7 @@ class SecurityEventConsumerTest {
 
     @Test
     void onMessageDelegatesToService() {
-        SecurityEventMessage message = new SecurityEventMessage();
-        message.setEventId("evt-1");
+        SecurityEventMessage message = SecurityEventMessage.builder().eventId("evt-1").build();
         consumer.onMessage(message);
         verify(eventEnrichmentService).enrichAndStore(message);
     }

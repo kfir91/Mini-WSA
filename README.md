@@ -102,6 +102,8 @@ Use `/swagger-ui/index.html` (not bare `/swagger-ui.html`). Restart apps after O
 
 Open [`index.html`](index.html) in a browser (double-click from the repo root). It lists links to ingest, analytics, Swagger, Adminer, Kafka UI, and sample query URLs, and probes which ports are up.
 
+Adminer: hub **Connect (from config)** → `http://localhost:8080/adminer-go.html`. Static JS loads `GET /adminer-go/config` (user/password/db from `SPRING_DATASOURCE_*`, server from `ADMINER_DEFAULT_SERVER`, default `miniwsa-postgres`) and POSTs into `:8082`. Do not open `http://localhost:8082/?pgsql=postgres&…`.
+
 ## Run locally (Windows)
 
 1. Copy [`.env.example`](.env.example) to `.env`. Set `POSTGRES_PASSWORD` / `SPRING_DATASOURCE_PASSWORD`. Leave `SONAR_TOKEN` empty until you create a local Sonar token (never commit a real token).

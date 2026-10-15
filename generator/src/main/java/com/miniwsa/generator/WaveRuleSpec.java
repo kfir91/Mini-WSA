@@ -40,12 +40,12 @@ public enum WaveRuleSpec {
     }
 
     public RuleMessage toRule() {
-        RuleMessage rule = new RuleMessage();
-        rule.setCategory(category);
-        rule.setId(id);
-        rule.setName(name);
-        rule.setMessage(message);
-        rule.setSeverity(severity);
-        return rule;
+        return RuleMessage.builder()
+                .category(category)
+                .id(id)
+                .name(name)
+                .message(message)
+                .severity(severity)
+                .build();
     }
 }
