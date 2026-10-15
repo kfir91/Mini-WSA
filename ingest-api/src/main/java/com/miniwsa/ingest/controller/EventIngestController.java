@@ -1,5 +1,6 @@
 package com.miniwsa.ingest.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.miniwsa.contracts.SecurityEventMessage;
@@ -38,16 +39,25 @@ public class EventIngestController implements EventsApi {
             if (body.isEmpty()) {
                 throw new IngestValidationException(List.of(detail(null, "body", "Event array must not be empty")));
             }
+            int index = 0;
             for (JsonNode node : body) {
-                events.add(objectMapper.treeToValue(node, SecurityEventMessage.class));
+                events.add(parseEvent(node, index++));
             }
         } else if (body.isObject()) {
-            events.add(objectMapper.treeToValue(body, SecurityEventMessage.class));
+            events.add(parseEvent(body, null));
         } else {
             throw new IngestValidationException(List.of(detail(null, "body", "Body must be a JSON object or array")));
         }
         eventIngestService.ingest(events);
         return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    private SecurityEventMessage parseEvent(JsonNode node, Integer index) {
+        try {
+            return objectMapper.treeToValue(node, SecurityEventMessage.class);
+        } catch (JsonProcessingException ex) {
+            throw new IngestValidationException(List.of(detail(index, "body", rootMessage(ex))));
+        }
     }
 
     private static ErrorDetail detail(Integer index, String field, String reason) {
@@ -56,5 +66,13 @@ public class EventIngestController implements EventsApi {
         d.setField(field);
         d.setReason(reason);
         return d;
+    }
+
+    private static String rootMessage(Throwable ex) {
+        Throwable current = ex;
+        while (current.getCause() != null && current.getCause() != current) {
+            current = current.getCause();
+        }
+        return current.getMessage() == null ? "Invalid event JSON" : current.getMessage();
     }
 }

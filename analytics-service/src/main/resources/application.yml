@@ -45,9 +45,11 @@ springdoc:
   api-docs:
     enabled: true
   swagger-ui:
+    # springdoc uses this as a redirect entry; UI assets live under /swagger-ui/
     path: /swagger-ui.html
     url: /open-api/analytics-api.yaml
     disable-swagger-default-url: true
+
 
 
 management:

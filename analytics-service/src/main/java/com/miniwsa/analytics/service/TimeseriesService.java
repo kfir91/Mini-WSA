@@ -2,7 +2,7 @@ package com.miniwsa.analytics.service;
 
 import com.miniwsa.analytics.api.TimeseriesPoint;
 import com.miniwsa.analytics.api.TimeseriesResponse;
-import com.miniwsa.analytics.repository.SecurityEventRepository;
+import com.miniwsa.analytics.repository.TimeseriesBucketQuery;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -19,10 +19,10 @@ public class TimeseriesService {
             "5m", "5 minutes",
             "1h", "1 hour");
 
-    private final SecurityEventRepository repository;
+    private final TimeseriesBucketQuery timeseriesBucketQuery;
 
-    public TimeseriesService(SecurityEventRepository repository) {
-        this.repository = repository;
+    public TimeseriesService(TimeseriesBucketQuery timeseriesBucketQuery) {
+        this.timeseriesBucketQuery = timeseriesBucketQuery;
     }
 
     public TimeseriesResponse timeseries(String interval, Long configId, Instant from, Instant to) {
@@ -30,7 +30,7 @@ public class TimeseriesService {
         if (pgInterval == null) {
             throw new IllegalArgumentException("interval must be one of 1m, 5m, 1h");
         }
-        var points = repository.timeseries(pgInterval, configId, from, to).stream()
+        var points = timeseriesBucketQuery.query(pgInterval, configId, from, to).stream()
                 .map(row -> new TimeseriesPoint(row.getBucket(), row.getCount()))
                 .toList();
         return new TimeseriesResponse(interval, points);

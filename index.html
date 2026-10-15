@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mini WSA — local services</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a2332;
+      --text: #e7ecf3;
+      --muted: #9aa8bc;
+      --accent: #3d9cf0;
+      --ok: #3ecf8e;
+      --bad: #f07178;
+      --line: #2a3548;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: radial-gradient(1200px 600px at 10% -10%, #1b2a44 0%, var(--bg) 55%);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem 1.25rem 3rem;
+    }
+    main { max-width: 52rem; margin: 0 auto; }
+    h1 { font-size: 1.75rem; margin: 0 0 0.35rem; letter-spacing: -0.02em; }
+    .lead { color: var(--muted); margin: 0 0 1.75rem; line-height: 1.5; }
+    section {
+      background: color-mix(in srgb, var(--panel) 92%, black);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 1rem 1.1rem 0.35rem;
+      margin-bottom: 1rem;
+    }
+    h2 {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin: 0 0 0.75rem;
+      font-weight: 600;
+    }
+    ul { list-style: none; margin: 0; padding: 0; }
+    li {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.65rem 0;
+      border-top: 1px solid var(--line);
+      flex-wrap: wrap;
+    }
+    li:first-of-type { border-top: none; }
+    a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    a:hover { text-decoration: underline; }
+    .meta { color: var(--muted); font-size: 0.9rem; flex: 1; min-width: 12rem; }
+    .port {
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 0.8rem;
+      color: var(--muted);
+      background: #121821;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 0.15rem 0.45rem;
+    }
+    .status {
+      font-size: 0.75rem;
+      font-weight: 700;
+      border-radius: 999px;
+      padding: 0.2rem 0.55rem;
+      min-width: 3.5rem;
+      text-align: center;
+    }
+    .status.ok { background: color-mix(in srgb, var(--ok) 22%, transparent); color: var(--ok); }
+    .status.bad { background: color-mix(in srgb, var(--bad) 22%, transparent); color: var(--bad); }
+    .status.wait { background: #2a3344; color: var(--muted); }
+    footer { margin-top: 1.25rem; color: var(--muted); font-size: 0.85rem; line-height: 1.5; }
+    code { font-family: ui-monospace, Consolas, monospace; font-size: 0.85em; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Mini WSA</h1>
+    <p class="lead">Local links for apps and infra. Open this file from the repo root. Status probes run in your browser against <code>localhost</code>.</p>
+
+    <section>
+      <h2>Applications</h2>
+      <ul>
+        <li>
+          <span class="status wait" data-check="http://localhost:8081/actuator/health">…</span>
+          <span class="port">:8081</span>
+          <a href="http://localhost:8081/">ingest-api</a>
+          <span class="meta">Validate events → Kafka</span>
+          <a href="http://localhost:8081/swagger-ui/index.html">Swagger</a>
+          <a href="http://localhost:8081/actuator/health">Health</a>
+        </li>
+        <li>
+          <span class="status wait" data-check="http://localhost:8080/actuator/health">…</span>
+          <span class="port">:8080</span>
+          <a href="http://localhost:8080/">analytics-service</a>
+          <span class="meta">Consume · score · Postgres · query APIs</span>
+          <a href="http://localhost:8080/swagger-ui/index.html">Swagger</a>
+          <a href="http://localhost:8080/actuator/health">Health</a>
+        </li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Analytics APIs</h2>
+      <ul>
+        <li>
+          <span class="status wait" data-check="http://localhost:8080/v1/stats/summary">…</span>
+          <a href="http://localhost:8080/v1/stats/summary">GET /v1/stats/summary</a>
+          <span class="meta">Aggregated attack summary</span>
+        </li>
+        <li>
+          <span class="status wait" data-check="http://localhost:8080/v1/events/samples?limit=5">…</span>
+          <a href="http://localhost:8080/v1/events/samples?limit=5">GET /v1/events/samples</a>
+          <span class="meta">Enriched event samples</span>
+        </li>
+        <li>
+          <span class="status wait" data-check="http://localhost:8080/v1/stats/timeseries?interval=5m">…</span>
+          <a href="http://localhost:8080/v1/stats/timeseries?interval=5m">GET /v1/stats/timeseries?interval=5m</a>
+          <span class="meta">Bucketed counts</span>
+        </li>
+        <li>
+          <span class="port">POST</span>
+          <a href="http://localhost:8080/swagger-ui/index.html">/v1/alerts/define · evaluate</a>
+          <span class="meta">In-memory alerts (use Swagger)</span>
+        </li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Infrastructure (Docker Compose)</h2>
+      <ul>
+        <li>
+          <span class="status wait" data-check="http://localhost:8082/">…</span>
+          <span class="port">:8082</span>
+          <a href="http://localhost:8082/">Adminer</a>
+          <span class="meta">Postgres UI — server <code>postgres</code>, db <code>miniwsa</code></span>
+        </li>
+        <li>
+          <span class="status wait" data-check="http://localhost:8083/">…</span>
+          <span class="port">:8083</span>
+          <a href="http://localhost:8083/">Kafka UI</a>
+          <span class="meta">Topics <code>security-events.raw</code> / <code>.dlq</code></span>
+        </li>
+        <li>
+          <span class="port">:5432</span>
+          <span class="meta">PostgreSQL 16 (no HTTP page)</span>
+        </li>
+        <li>
+          <span class="port">:9092</span>
+          <span class="meta">Kafka broker (no HTTP page)</span>
+        </li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>OpenAPI specs</h2>
+      <ul>
+        <li>
+          <a href="http://localhost:8081/open-api/ingest-api.yaml">ingest-api.yaml</a>
+          <span class="meta">Served by ingest-api</span>
+        </li>
+        <li>
+          <a href="http://localhost:8080/open-api/analytics-api.yaml">analytics-api.yaml</a>
+          <span class="meta">Served by analytics-service</span>
+        </li>
+        <li>
+          <span class="meta">Shared wire contract: <code>miniwsa-contracts/src/main/resources/open-api/security-event.yaml</code></span>
+        </li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Generator (CLI)</h2>
+      <ul>
+        <li>
+          <span class="meta">No web UI — from repo root: <code>.\generator\generate.ps1 -Count 20 -Rate 5 -Wave sql</code></span>
+        </li>
+      </ul>
+    </section>
+
+    <footer>
+      Start infra with <code>docker compose --env-file .env up -d</code>, then run ingest (:8081) and analytics (:8080).
+      Refresh this page to re-check status.
+    </footer>
+  </main>
+  <script>
+    async function probe(el) {
+      const url = el.getAttribute('data-check');
+      if (!url) return;
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 4000);
+      try {
+        // file:// → localhost is opaque; success means something answered on that port
+        await fetch(url, { signal: ctrl.signal, mode: 'no-cors' });
+        el.textContent = 'up';
+        el.classList.remove('wait');
+        el.classList.add('ok');
+      } catch (e) {
+        el.textContent = 'down';
+        el.classList.remove('wait');
+        el.classList.add('bad');
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+    document.querySelectorAll('[data-check]').forEach(probe);
+  </script>
+</body>
+</html>

@@ -90,7 +90,11 @@ Contract-first: edit YAML under `src/main/resources/open-api/`, then `mvn genera
 - ingest: http://localhost:8081/swagger-ui/index.html
 - analytics: http://localhost:8080/swagger-ui/index.html
 
-(`/swagger-ui.html` redirects to the same page.) Restart the apps after OpenAPI/springdoc config changes.
+Use `/swagger-ui/index.html` (not bare `/swagger-ui.html`). Restart apps after OpenAPI/springdoc config changes.
+
+## Local hub page
+
+Open [`index.html`](index.html) in a browser (double-click from the repo root). It lists links to ingest, analytics, Swagger, Adminer, Kafka UI, and sample query URLs, and probes which ports are up.
 
 ## Run locally (Windows)
 

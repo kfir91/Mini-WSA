@@ -1,0 +1,8 @@
+spring:
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+
+miniwsa:
+  kafka:
+    topic-raw: security-events.raw
+    publish-timeout-seconds: 2
