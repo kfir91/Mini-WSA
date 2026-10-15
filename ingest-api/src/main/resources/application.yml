@@ -4,6 +4,19 @@ server:
 spring:
   application:
     name: ingest-api
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+      acks: all
+
+miniwsa:
+  kafka:
+    topic-raw: ${KAFKA_TOPIC_RAW:security-events.raw}
+    publish-timeout-seconds: ${KAFKA_PUBLISH_TIMEOUT_SECONDS:10}
 
 management:
   endpoints:
@@ -14,3 +27,6 @@ management:
     health:
       probes:
         enabled: true
+  health:
+    kafka:
+      enabled: true

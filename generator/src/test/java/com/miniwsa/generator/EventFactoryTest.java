@@ -24,9 +24,20 @@ class EventFactoryTest {
     @Test
     void sqlWaveIsAlwaysInjectionAndValid() {
         for (int i = 0; i < 5; i++) {
-            SecurityEventMessage event = factory.create("sql", 14227L);
+            SecurityEventMessage event = factory.create(i, "sql", 14227L);
             assertEquals(AttackCategory.INJECTION, event.getRule().getCategory());
             assertTrue(validator.validate(event).isEmpty());
+        }
+    }
+
+    @Test
+    void sqlWaveKeepsSameIpAndPathForABurst() {
+        EventFactory bursting = new EventFactory(4);
+        SecurityEventMessage first = bursting.create(0, "sql", 1L);
+        for (int i = 1; i < 4; i++) {
+            SecurityEventMessage event = bursting.create(i, "sql", 1L);
+            assertEquals(first.getClientIp(), event.getClientIp());
+            assertEquals(first.getPath(), event.getPath());
         }
     }
 

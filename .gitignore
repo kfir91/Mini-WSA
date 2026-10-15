@@ -7,3 +7,5 @@ target/
 .settings/
 *.log
 .vscode/
+analytics-service/bin/*
+ingest-api/bin/*

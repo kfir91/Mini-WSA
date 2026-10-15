@@ -9,7 +9,7 @@ public final class GeneratorMain {
 
     public static void main(String[] args) throws Exception {
         CliOptions options = CliOptions.parse(args);
-        EventFactory factory = new EventFactory();
+        EventFactory factory = new EventFactory(options.getBurstSize());
         IngestClient client = new IngestClient(options.getBaseUrl());
         ConsoleProgress progress = new ConsoleProgress(options.getCount());
         progress.start(options.getWave(), options.getRate(), options.getBaseUrl());
@@ -18,7 +18,7 @@ public final class GeneratorMain {
         int accepted = 0;
         int rejected = 0;
         for (int i = 0; i < options.getCount(); i++) {
-            SecurityEventMessage event = factory.create(options.getWave(), options.getConfigId());
+            SecurityEventMessage event = factory.create(i, options.getWave(), options.getConfigId());
             int status = client.post(event);
             if (status == 201) {
                 accepted++;
