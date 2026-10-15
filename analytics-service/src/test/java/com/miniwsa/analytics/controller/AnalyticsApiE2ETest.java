@@ -116,6 +116,36 @@ class AnalyticsApiE2ETest {
     }
 
     @Test
+    void timeseriesSupportsOneMinuteAndOneHour() throws Exception {
+        mockMvc.perform(get("/v1/stats/timeseries").param("interval", "1m").param("configId", "14227"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.interval").value("1m"));
+        mockMvc.perform(get("/v1/stats/timeseries").param("interval", "1h"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.interval").value("1h"));
+    }
+
+    @Test
+    void samplesFiltersByActionAndTimeRange() throws Exception {
+        Instant from = Instant.now().minus(Duration.ofHours(1));
+        Instant to = Instant.now().plus(Duration.ofMinutes(1));
+        mockMvc.perform(get("/v1/events/samples")
+                        .param("action", "DENY")
+                        .param("from", from.toString())
+                        .param("to", to.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.items[0].action").value("DENY"));
+    }
+
+    @Test
+    void summaryWithoutConfigIdAggregatesAll() throws Exception {
+        mockMvc.perform(get("/v1/stats/summary"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalEvents").value(3));
+    }
+
+    @Test
     void alertsDefineAndEvaluate() throws Exception {
         MvcResult created = mockMvc.perform(post("/v1/alerts/define")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -196,6 +226,51 @@ class AnalyticsApiE2ETest {
     @Test
     void alertsUnknownIdReturns404() throws Exception {
         mockMvc.perform(get("/v1/alerts/evaluate").param("alertId", "missing-alert"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
+    }
+
+    @Test
+    void alertsRejectUnknownCategory() throws Exception {
+        mockMvc.perform(post("/v1/alerts/define")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "configId": 14227,
+                                  "category": "NOPE",
+                                  "metric": "event_count",
+                                  "window": "5m",
+                                  "threshold": 1
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void alertsBlankCategoryPersistsAsNull() throws Exception {
+        MvcResult created = mockMvc.perform(post("/v1/alerts/define")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "configId": 14227,
+                                  "category": "  ",
+                                  "metric": "event_count",
+                                  "window": "5m",
+                                  "threshold": 1
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String alertId = objectMapper.readTree(created.getResponse().getContentAsString()).get("id").asText();
+        assertTrue(alertDefinitionRepository.findById(alertId).isPresent());
+        org.junit.jupiter.api.Assertions.assertNull(
+                alertDefinitionRepository.findById(alertId).orElseThrow().getCategory());
+    }
+
+    @Test
+    void unknownPathReturns404() throws Exception {
+        mockMvc.perform(get("/v1/does-not-exist"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }

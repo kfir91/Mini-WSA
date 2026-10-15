@@ -30,6 +30,7 @@ Java 17+, Maven 3.8+, Docker Desktop, and a free local stack (PostgreSQL 16 + Ka
               |
    Infra (Compose): Postgres :5432, Kafka :9092,
                     Adminer :8082, Kafka UI :8083
+   Quality (optional profile): SonarQube Community :9000
    OpenAPI YAML + Swagger UI on both apps (see below)
 ```
 
@@ -105,11 +106,18 @@ Open [`index.html`](index.html) in a browser (double-click from the repo root). 
 docker compose --env-file .env up -d
 ```
 
-3. Build and test:
+3. Build and test (JaCoCo coverage gate ≥95% LINE and BRANCH):
 
 ```powershell
-mvn test
+mvn verify
 ```
+
+HTML reports:
+
+- Aggregate: `miniwsa-coverage/target/site/jacoco-aggregate/index.html`
+- Per module: `<module>/target/site/jacoco/index.html`
+
+If Maven/OpenAPI hits path encoding issues on a Hebrew folder path, copy the tree to an ASCII path (e.g. `C:\Temp\miniwsa-build`) and run `mvn verify` there.
 
 4. Start the services (two terminals). Load the same env vars the JVM can see (`SPRING_DATASOURCE_*`, `KAFKA_BOOTSTRAP_SERVERS=localhost:9092`).
 
@@ -119,6 +127,26 @@ mvn -pl analytics-service spring-boot:run
 ```
 
 Kafka topics `security-events.raw` and `security-events.dlq` are created on first produce/consume (auto-create is enabled). Names come from `KAFKA_TOPIC_RAW` / `KAFKA_TOPIC_DLQ`.
+
+### Local quality (JaCoCo + SonarQube Community)
+
+Latest snapshot tables: [`QUALITY_REPORT.md`](QUALITY_REPORT.md).
+
+Everything runs on your Windows machine: free JaCoCo in Maven, free SonarQube Community in Docker. No SonarCloud, no paid license.
+
+```powershell
+# Coverage + gate (≥95% LINE/BRANCH)
+mvn verify
+
+# Local SonarQube (profile keeps daily compose light)
+docker compose --profile sonar up -d
+# Open http://localhost:9000 — first login admin/admin, set a new password,
+# create a user token, put it in .env as SONAR_TOKEN=
+
+mvn verify sonar:sonar "-Dsonar.token=$env:SONAR_TOKEN"
+```
+
+Sonar UI shows coverage (from JaCoCo XML), code smells, bugs, and security hotspots. Analysis targets `http://localhost:9000` only.
 
 ### Docker images
 

@@ -13,6 +13,11 @@
     <artifactId>miniwsa-contracts</artifactId>
     <name>miniwsa-contracts</name>
 
+    <properties>
+        <!-- Almost all bytecode is OpenAPI-generated; excluded from coverage. -->
+        <jacoco.skip>true</jacoco.skip>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>jakarta.validation</groupId>

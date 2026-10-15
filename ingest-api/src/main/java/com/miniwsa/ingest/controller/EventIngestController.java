@@ -67,7 +67,7 @@ public class EventIngestController implements EventsApi {
 
     private static String rootMessage(Throwable ex) {
         Throwable current = ex;
-        while (current.getCause() != null && current.getCause() != current) {
+        while (current.getCause() != null) {
             current = current.getCause();
         }
         return current.getMessage() == null ? "Invalid event JSON" : current.getMessage();

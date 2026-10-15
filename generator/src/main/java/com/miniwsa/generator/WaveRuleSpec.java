@@ -6,9 +6,6 @@ import com.miniwsa.contracts.Severity;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
-import java.util.EnumMap;
-import java.util.Map;
-
 /**
  * Rule template used when synthesizing events for a wire category.
  */
@@ -24,14 +21,6 @@ public enum WaveRuleSpec {
     DOS(AttackCategory.DOS, "990000", "DOS", "DOS detected", Severity.MEDIUM),
     RATE_LIMIT(AttackCategory.RATE_LIMIT, "990000", "RATE_LIMIT", "RATE_LIMIT detected", Severity.MEDIUM);
 
-    private static final Map<AttackCategory, WaveRuleSpec> BY_CATEGORY = new EnumMap<>(AttackCategory.class);
-
-    static {
-        for (WaveRuleSpec spec : values()) {
-            BY_CATEGORY.put(spec.category, spec);
-        }
-    }
-
     private final AttackCategory category;
     private final String id;
     private final String name;
@@ -39,11 +28,15 @@ public enum WaveRuleSpec {
     private final Severity severity;
 
     public static WaveRuleSpec from(AttackCategory category) {
-        WaveRuleSpec spec = BY_CATEGORY.get(category);
-        if (spec == null) {
-            throw new IllegalArgumentException("Unknown category: " + category);
-        }
-        return spec;
+        return switch (category) {
+            case INJECTION -> INJECTION;
+            case XSS -> XSS;
+            case PROTOCOL_VIOLATION -> PROTOCOL_VIOLATION;
+            case DATA_LEAKAGE -> DATA_LEAKAGE;
+            case BOT -> BOT;
+            case DOS -> DOS;
+            case RATE_LIMIT -> RATE_LIMIT;
+        };
     }
 
     public RuleMessage toRule() {

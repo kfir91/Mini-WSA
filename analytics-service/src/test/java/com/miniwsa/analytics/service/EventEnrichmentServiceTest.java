@@ -17,6 +17,7 @@ import org.mapstruct.factory.Mappers;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Duration;
@@ -25,6 +26,7 @@ import java.time.Instant;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -72,6 +74,27 @@ class EventEnrichmentServiceTest {
         ArgumentCaptor<SecurityEventEntity> captor = ArgumentCaptor.forClass(SecurityEventEntity.class);
         verify(repository).save(captor.capture());
         assertEquals(75, captor.getValue().getThreatScore());
+    }
+
+    @Test
+    void duplicateInsertRaceIsIgnored() {
+        when(repository.existsById("evt-race")).thenReturn(false);
+        when(repository.countByClientIpAndEventTimestampGreaterThanEqual(eq("203.0.113.42"), any())).thenReturn(0L);
+        doThrow(new DataIntegrityViolationException("dup")).when(repository).save(any());
+        service.enrichAndStore(message("evt-race", "/home"));
+        verify(repository).save(any());
+    }
+
+    @Test
+    void stampsReceivedAtWhenMissing() {
+        when(repository.existsById("evt-2")).thenReturn(false);
+        when(repository.countByClientIpAndEventTimestampGreaterThanEqual(eq("203.0.113.42"), any())).thenReturn(0L);
+        SecurityEventMessage event = message("evt-2", "/home");
+        event.setReceivedAt(null);
+        service.enrichAndStore(event);
+        ArgumentCaptor<SecurityEventEntity> captor = ArgumentCaptor.forClass(SecurityEventEntity.class);
+        verify(repository).save(captor.capture());
+        org.junit.jupiter.api.Assertions.assertNotNull(captor.getValue().getReceivedAt());
     }
 
     private static SecurityEventMessage message(String id, String path) {

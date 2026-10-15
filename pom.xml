@@ -23,6 +23,7 @@
         <module>ingest-api</module>
         <module>analytics-service</module>
         <module>generator</module>
+        <module>miniwsa-coverage</module>
     </modules>
 
     <properties>
@@ -32,6 +33,38 @@
         <lombok.version>1.18.30</lombok.version>
         <springdoc.version>2.6.0</springdoc.version>
         <openapi-generator.version>7.9.0</openapi-generator.version>
+        <jacoco.version>0.8.12</jacoco.version>
+        <sonar-maven-plugin.version>4.0.0.4121</sonar-maven-plugin.version>
+        <jacoco.line.minimum>0.95</jacoco.line.minimum>
+        <jacoco.branch.minimum>0.95</jacoco.branch.minimum>
+
+        <!-- Local SonarQube Community only (Docker :9000). No SonarCloud. -->
+        <sonar.projectKey>miniwsa</sonar.projectKey>
+        <sonar.projectName>Mini WSA</sonar.projectName>
+        <sonar.host.url>http://localhost:9000</sonar.host.url>
+        <sonar.java.coveragePlugin>jacoco</sonar.java.coveragePlugin>
+        <!--
+          Scope analysis to hand-written trees only. OpenAPI / MapStruct output lives under
+          target/generated-sources and is therefore not scanned — no per-package exclusion list.
+        -->
+        <sonar.sources>src/main/java</sonar.sources>
+        <sonar.tests>src/test/java</sonar.tests>
+        <sonar.coverage.jacoco.xmlReportPaths>
+            ${maven.multiModuleProjectDirectory}/miniwsa-contracts/target/site/jacoco/jacoco.xml,
+            ${maven.multiModuleProjectDirectory}/ingest-api/target/site/jacoco/jacoco.xml,
+            ${maven.multiModuleProjectDirectory}/analytics-service/target/site/jacoco/jacoco.xml,
+            ${maven.multiModuleProjectDirectory}/generator/target/site/jacoco/jacoco.xml,
+            ${maven.multiModuleProjectDirectory}/miniwsa-coverage/target/site/jacoco-aggregate/jacoco.xml
+        </sonar.coverage.jacoco.xmlReportPaths>
+        <!-- Align Sonar coverage % with JaCoCo for a few hand-written types we also skip there. -->
+        <sonar.coverage.exclusions>
+            **/*Application.java,
+            **/KafkaConsumerConfig.java,
+            **/PostgresTimeseriesBucketQuery.java,
+            **/GeneratorMain.java,
+            **/IngestClient.java,
+            **/ConsoleProgress.java
+        </sonar.coverage.exclusions>
     </properties>
 
     <dependencyManagement>
@@ -91,12 +124,88 @@
                         </annotationProcessorPaths>
                     </configuration>
                 </plugin>
+                <plugin>
+                    <groupId>org.jacoco</groupId>
+                    <artifactId>jacoco-maven-plugin</artifactId>
+                    <version>${jacoco.version}</version>
+                    <configuration>
+                        <excludes>
+                            <!-- OpenAPI-generated contracts + analytics API models/interfaces -->
+                            <exclude>com/miniwsa/contracts/**</exclude>
+                            <exclude>com/miniwsa/analytics/api/**</exclude>
+                            <exclude>com/miniwsa/ingest/api/Error*</exclude>
+                            <exclude>**/*Application*</exclude>
+                            <exclude>**/*MapperImpl*</exclude>
+                            <!-- Spring Kafka wiring + Postgres-only SQL + generator CLI I/O -->
+                            <exclude>**/KafkaConsumerConfig*</exclude>
+                            <exclude>**/PostgresTimeseriesBucketQuery*</exclude>
+                            <exclude>**/GeneratorMain*</exclude>
+                            <exclude>**/IngestClient*</exclude>
+                            <exclude>**/ConsoleProgress*</exclude>
+                        </excludes>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.sonarsource.scanner.maven</groupId>
+                    <artifactId>sonar-maven-plugin</artifactId>
+                    <version>${sonar-maven-plugin.version}</version>
+                </plugin>
             </plugins>
         </pluginManagement>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>check</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <configuration>
+                            <!-- Per-module ≥95% ⇒ weighted aggregate ≥95%. -->
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>${jacoco.line.minimum}</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>${jacoco.branch.minimum}</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.sonarsource.scanner.maven</groupId>
+                <artifactId>sonar-maven-plugin</artifactId>
             </plugin>
         </plugins>
     </build>

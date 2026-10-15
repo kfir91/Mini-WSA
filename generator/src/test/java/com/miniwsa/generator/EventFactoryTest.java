@@ -59,4 +59,27 @@ class EventFactoryTest {
     void unknownWaveFails() {
         assertThrows(IllegalArgumentException.class, () -> factory.create("botwave", 1L));
     }
+
+    @Test
+    void mixedWaveUsesBurstThenRandom() {
+        EventFactory bursting = new EventFactory(2);
+        SecurityEventMessage a = bursting.create(0, "mixed", 1L);
+        SecurityEventMessage b = bursting.create(1, "mixed", 1L);
+        assertEquals(a.getClientIp(), b.getClientIp());
+        // indices 2-3 are outside the first burst window for burstSize=2
+        SecurityEventMessage c = bursting.create(2, "mixed", 1L);
+        assertTrue(validator.validate(c).isEmpty());
+    }
+
+    @Test
+    void defaultBurstSizeConstructor() {
+        EventFactory defaults = new EventFactory();
+        assertTrue(validator.validate(defaults.create(0, "sql", 1L)).isEmpty());
+    }
+
+    @Test
+    void nonPositiveBurstSizeClampedToOne() {
+        EventFactory tiny = new EventFactory(0);
+        assertTrue(validator.validate(tiny.create(0, "sql", 1L)).isEmpty());
+    }
 }
