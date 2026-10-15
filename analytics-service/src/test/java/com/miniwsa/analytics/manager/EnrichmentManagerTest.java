@@ -1,5 +1,6 @@
 package com.miniwsa.analytics.manager;
 
+import com.miniwsa.analytics.domain.AttackType;
 import com.miniwsa.contracts.Action;
 import com.miniwsa.contracts.AttackCategory;
 import com.miniwsa.contracts.Severity;
@@ -27,6 +28,14 @@ class EnrichmentManagerTest {
     })
     void classifiesEveryCategory(AttackCategory category, String expected) {
         assertEquals(expected, manager.classify(category));
+        AttackType type = AttackType.from(category);
+        assertEquals(category, type.getCategory());
+        assertEquals(expected, type.getLabel());
+    }
+
+    @Test
+    void attackTypeCoversEveryWireCategory() {
+        assertEquals(AttackCategory.values().length, AttackType.values().length);
     }
 
     @Test

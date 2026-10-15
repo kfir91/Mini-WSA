@@ -46,8 +46,9 @@ MapStruct mappers in `mapper/` convert contract/api ↔ entity/domain. No busine
 
 ## Dependency Injection
 - Constructor injection with `final` fields. Prefer `@RequiredArgsConstructor` when the constructor only wires collaborators (no `@Value` params).
-- Keep an explicit constructor when any parameter needs `@Value` (or other non-Lombok annotations).
-- Avoid: manual construction of dependencies in business classes, static global state, service locators.
+- Keep an explicit constructor when any parameter needs `@Value` (or other non-Lombok annotations) — put `@Value` on the **constructor parameter**, not on a mutable field.
+- Spring tests: `@Autowired` / `@MockBean` on the test class is fine for MockMvc E2E; production code never uses field `@Autowired`.
+- Avoid: manual construction of dependencies in business classes, static global state, service locators, `ReflectionTestUtils` for config that belongs in the constructor.
 
 ## Package Structure (baseline)
 ```text

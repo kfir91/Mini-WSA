@@ -4,9 +4,10 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.miniwsa.contracts.SecurityEventMessage;
-import com.miniwsa.ingest.api.ErrorDetail;
 import com.miniwsa.ingest.api.EventsApi;
+import com.miniwsa.ingest.exception.ErrorDetails;
 import com.miniwsa.ingest.exception.IngestValidationException;
+import com.miniwsa.ingest.exception.ThrowableMessages;
 import com.miniwsa.ingest.service.EventIngestService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -29,12 +30,12 @@ public class EventIngestController implements EventsApi {
     @Override
     public ResponseEntity<Void> ingestEvents(JsonNode body) throws Exception {
         if (body == null || body.isNull() || body.isMissingNode()) {
-            throw new IngestValidationException(List.of(detail(null, "body", "Request body is required")));
+            throw new IngestValidationException(List.of(ErrorDetails.of(null, "body", "Request body is required")));
         }
         List<SecurityEventMessage> events = new ArrayList<>();
         if (body.isArray()) {
             if (body.isEmpty()) {
-                throw new IngestValidationException(List.of(detail(null, "body", "Event array must not be empty")));
+                throw new IngestValidationException(List.of(ErrorDetails.of(null, "body", "Event array must not be empty")));
             }
             int index = 0;
             for (JsonNode node : body) {
@@ -43,7 +44,7 @@ public class EventIngestController implements EventsApi {
         } else if (body.isObject()) {
             events.add(parseEvent(body, null));
         } else {
-            throw new IngestValidationException(List.of(detail(null, "body", "Body must be a JSON object or array")));
+            throw new IngestValidationException(List.of(ErrorDetails.of(null, "body", "Body must be a JSON object or array")));
         }
         eventIngestService.ingest(events);
         return ResponseEntity.status(HttpStatus.CREATED).build();
@@ -53,23 +54,8 @@ public class EventIngestController implements EventsApi {
         try {
             return objectMapper.treeToValue(node, SecurityEventMessage.class);
         } catch (JsonProcessingException ex) {
-            throw new IngestValidationException(List.of(detail(index, "body", rootMessage(ex))));
+            throw new IngestValidationException(List.of(
+                    ErrorDetails.of(index, "body", ThrowableMessages.rootMessageOr(ex, "Invalid event JSON"))));
         }
-    }
-
-    private static ErrorDetail detail(Integer index, String field, String reason) {
-        ErrorDetail d = new ErrorDetail();
-        d.setIndex(index);
-        d.setField(field);
-        d.setReason(reason);
-        return d;
-    }
-
-    private static String rootMessage(Throwable ex) {
-        Throwable current = ex;
-        while (current.getCause() != null) {
-            current = current.getCause();
-        }
-        return current.getMessage() == null ? "Invalid event JSON" : current.getMessage();
     }
 }
