@@ -241,6 +241,7 @@ Platform and reliability:
 - Build a small web page that charts `/v1/stats/timeseries` and shows `/v1/stats/summary`.
 - Make ingest batch publish all-or-nothing (today a mid-batch Kafka failure can leave some events already sent).
 - Stronger consumer error handling around poison messages and clearer DLQ inspection in day-to-day ops.
+- Move DB (and any future API) credentials out of env files into a secret manager (e.g. Vault, cloud secret store, or Kubernetes Secrets), and inject them at runtime instead of keeping passwords/keys on disk or in plain process env.
 
 AI / LLM (on top of the current pipeline, not instead of it):
 
