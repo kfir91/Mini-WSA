@@ -27,22 +27,36 @@ public class StatsService {
         long total = summaryQuery.count(configId, from, to);
         Map<String, CategoryStats> byCategory = new LinkedHashMap<>();
         for (var row : summaryQuery.byCategory(configId, from, to)) {
-            byCategory.put(row.getCategory(), new CategoryStats(row.getCount(), round(row.getAvgThreatScore())));
+            byCategory.put(
+                    row.getCategory(),
+                    CategoryStats.builder()
+                            .count(row.getCount())
+                            .avgThreatScore(round(row.getAvgThreatScore()))
+                            .build());
         }
         Map<String, Long> byAction = new LinkedHashMap<>();
         for (var row : summaryQuery.byAction(configId, from, to)) {
             byAction.put(row.getAction(), row.getCount());
         }
         List<AttackerStats> attackers = summaryQuery.topAttackers(configId, from, to).stream()
-                .map(row -> new AttackerStats(row.getClientIp(), row.getCount(), round(row.getAvgThreatScore())))
+                .map(row -> AttackerStats.builder()
+                        .clientIp(row.getClientIp())
+                        .count(row.getCount())
+                        .avgThreatScore(round(row.getAvgThreatScore()))
+                        .build())
                 .toList();
         List<PathStats> paths = summaryQuery.topPaths(configId, from, to).stream()
-                .map(row -> new PathStats(row.getPath(), row.getCount()))
+                .map(row -> PathStats.builder().path(row.getPath()).count(row.getCount()).build())
                 .toList();
-        SummaryResponse response = new SummaryResponse(total, byCategory, byAction, attackers, paths);
-        response.setConfigId(configId);
-        response.setTimeRange(new TimeRange(from, to));
-        return response;
+        return SummaryResponse.builder()
+                .totalEvents(total)
+                .byCategory(byCategory)
+                .byAction(byAction)
+                .topAttackers(attackers)
+                .topTargetedPaths(paths)
+                .configId(configId)
+                .timeRange(TimeRange.builder().from(from).to(to).build())
+                .build();
     }
 
     private static double round(Double value) {

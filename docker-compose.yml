@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:16-alpine
+    container_name: miniwsa-postgres
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-miniwsa}
       POSTGRES_USER: ${POSTGRES_USER:-miniwsa}
@@ -41,8 +42,16 @@ services:
     ports:
       - "8082:8080"
     environment:
-      ADMINER_DEFAULT_SERVER: postgres
+      ADMINER_DEFAULT_SERVER: ${ADMINER_DEFAULT_SERVER:-miniwsa-postgres}
       ADMINER_DESIGN: pepa-linha
+      ADMINER_USERNAME: ${POSTGRES_USER:-miniwsa}
+      ADMINER_PASSWORD: ${POSTGRES_PASSWORD}
+      ADMINER_DB: ${POSTGRES_DB:-miniwsa}
+      POSTGRES_USER: ${POSTGRES_USER:-miniwsa}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-miniwsa}
+    volumes:
+      - ./docker/adminer/autologin.php:/var/www/html/plugins-enabled/autologin.php:ro
     depends_on:
       postgres:
         condition: service_healthy

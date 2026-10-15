@@ -1,0 +1,6 @@
+{
+  "configId": 14227,
+  "metric": "unique_ips",
+  "window": "1h",
+  "threshold": 1
+}

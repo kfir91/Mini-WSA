@@ -110,6 +110,13 @@
                             <importMappings>
                                 <importMapping>java.time.OffsetDateTime=java.time.Instant</importMapping>
                             </importMappings>
+                            <schemaMappings>
+                                <schemaMapping>ErrorCode=com.miniwsa.contracts.ErrorCode</schemaMapping>
+                                <schemaMapping>ErrorMessage=com.miniwsa.contracts.ErrorMessage</schemaMapping>
+                                <schemaMapping>ErrorReason=com.miniwsa.contracts.ErrorReason</schemaMapping>
+                                <schemaMapping>ErrorDetail=com.miniwsa.contracts.ErrorDetail</schemaMapping>
+                                <schemaMapping>ErrorResponse=com.miniwsa.contracts.ErrorResponse</schemaMapping>
+                            </schemaMappings>
                             <configOptions>
                                 <dateLibrary>java8</dateLibrary>
                                 <useSpringBoot3>true</useSpringBoot3>
@@ -122,6 +129,7 @@
                                 <useTags>true</useTags>
                                 <annotationLibrary>none</annotationLibrary>
                                 <documentationProvider>none</documentationProvider>
+                                <generateBuilders>true</generateBuilders>
                             </configOptions>
                         </configuration>
                     </execution>

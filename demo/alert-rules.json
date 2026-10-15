@@ -1,0 +1,150 @@
+[
+  {
+    "label": "Assignment · INJECTION ≥10 in 5m",
+    "meta": "Should FIRING with demo traffic",
+    "rule": {
+      "category": "INJECTION",
+      "metric": "event_count",
+      "window": "5m",
+      "threshold": 10
+    }
+  },
+  {
+    "label": "README · config 14227 INJECTION ≥10 in 5m",
+    "meta": "Should FIRING with demo traffic",
+    "rule": {
+      "configId": 14227,
+      "category": "INJECTION",
+      "metric": "event_count",
+      "window": "5m",
+      "threshold": 10
+    }
+  },
+  {
+    "label": "XSS ≥5 in 5m",
+    "meta": "Should FIRING with demo traffic",
+    "rule": {
+      "category": "XSS",
+      "metric": "event_count",
+      "window": "5m",
+      "threshold": 5
+    }
+  },
+  {
+    "label": "BOT ≥20 in 5m",
+    "meta": "Usually quiet — high bar",
+    "rule": {
+      "category": "BOT",
+      "metric": "event_count",
+      "window": "5m",
+      "threshold": 20
+    }
+  },
+  {
+    "label": "DOS ≥10 in 5m",
+    "meta": "Should FIRING with demo traffic",
+    "rule": {
+      "category": "DOS",
+      "metric": "event_count",
+      "window": "5m",
+      "threshold": 10
+    }
+  },
+  {
+    "label": "DATA_LEAKAGE ≥5 in 1h",
+    "meta": "Should FIRING with demo traffic",
+    "rule": {
+      "category": "DATA_LEAKAGE",
+      "metric": "event_count",
+      "window": "1h",
+      "threshold": 5
+    }
+  },
+  {
+    "label": "PROTOCOL_VIOLATION ≥3 in 5m",
+    "meta": "Should FIRING with demo traffic",
+    "rule": {
+      "category": "PROTOCOL_VIOLATION",
+      "metric": "event_count",
+      "window": "5m",
+      "threshold": 3
+    }
+  },
+  {
+    "label": "RATE_LIMIT ≥5 in 5m",
+    "meta": "Should FIRING with demo traffic",
+    "rule": {
+      "category": "RATE_LIMIT",
+      "metric": "event_count",
+      "window": "5m",
+      "threshold": 5
+    }
+  },
+  {
+    "label": "Any events ≥1 in 1h",
+    "meta": "Smoke — should FIRING",
+    "rule": {
+      "metric": "event_count",
+      "window": "1h",
+      "threshold": 1
+    }
+  },
+  {
+    "label": "INJECTION ≥1 in 1h",
+    "meta": "Smoke — should FIRING",
+    "rule": {
+      "category": "INJECTION",
+      "metric": "event_count",
+      "window": "1h",
+      "threshold": 1
+    }
+  },
+  {
+    "label": "config 14227 · any ≥1 in 1h",
+    "meta": "Smoke — should FIRING",
+    "rule": {
+      "configId": 14227,
+      "metric": "event_count",
+      "window": "1h",
+      "threshold": 1
+    }
+  },
+  {
+    "label": "unique_ips ≥1 in 1h",
+    "meta": "Smoke — should FIRING",
+    "rule": {
+      "metric": "unique_ips",
+      "window": "1h",
+      "threshold": 1
+    }
+  },
+  {
+    "label": "unique_ips ≥5 in 5m",
+    "meta": "Usually quiet — need 5 attackers",
+    "rule": {
+      "metric": "unique_ips",
+      "window": "5m",
+      "threshold": 5
+    }
+  },
+  {
+    "label": "config 14227 · unique_ips ≥3 in 5m",
+    "meta": "Should FIRING with demo traffic",
+    "rule": {
+      "configId": 14227,
+      "metric": "unique_ips",
+      "window": "5m",
+      "threshold": 3
+    }
+  },
+  {
+    "label": "XSS ≥50 in 1h",
+    "meta": "Usually quiet — high bar",
+    "rule": {
+      "category": "XSS",
+      "metric": "event_count",
+      "window": "1h",
+      "threshold": 50
+    }
+  }
+]

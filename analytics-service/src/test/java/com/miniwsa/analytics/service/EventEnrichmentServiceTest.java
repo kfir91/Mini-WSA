@@ -98,32 +98,29 @@ class EventEnrichmentServiceTest {
     }
 
     private static SecurityEventMessage message(String id, String path) {
-        RuleMessage rule = new RuleMessage();
-        rule.setId("950001");
-        rule.setName("SQL_INJECTION");
-        rule.setMessage("detected");
-        rule.setSeverity(Severity.CRITICAL);
-        rule.setCategory(AttackCategory.INJECTION);
-        GeoLocationMessage geo = new GeoLocationMessage();
-        geo.setCountry("CN");
-        geo.setCity("Beijing");
-        SecurityEventMessage event = new SecurityEventMessage();
-        event.setEventId(id);
-        event.setTimestamp(Instant.parse("2026-05-20T14:32:10Z"));
-        event.setReceivedAt(Instant.parse("2026-05-20T14:32:11Z"));
-        event.setConfigId(14227L);
-        event.setPolicyId("pol_web1");
-        event.setClientIp("203.0.113.42");
-        event.setHostname("www.example.com");
-        event.setPath(path);
-        event.setMethod("POST");
-        event.setStatusCode(403);
-        event.setUserAgent("Mozilla/5.0");
-        event.setRule(rule);
-        event.setAction(Action.DENY);
-        event.setGeoLocation(geo);
-        event.setRequestSize(1024);
-        event.setResponseSize(256);
-        return event;
+        return SecurityEventMessage.builder()
+                .eventId(id)
+                .timestamp(Instant.parse("2026-05-20T14:32:10Z"))
+                .receivedAt(Instant.parse("2026-05-20T14:32:11Z"))
+                .configId(14227L)
+                .policyId("pol_web1")
+                .clientIp("203.0.113.42")
+                .hostname("www.example.com")
+                .path(path)
+                .method("POST")
+                .statusCode(403)
+                .userAgent("Mozilla/5.0")
+                .rule(RuleMessage.builder()
+                        .id("950001")
+                        .name("SQL_INJECTION")
+                        .message("detected")
+                        .severity(Severity.CRITICAL)
+                        .category(AttackCategory.INJECTION)
+                        .build())
+                .action(Action.DENY)
+                .geoLocation(GeoLocationMessage.builder().country("CN").city("Beijing").build())
+                .requestSize(1024)
+                .responseSize(256)
+                .build();
     }
 }

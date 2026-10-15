@@ -42,10 +42,11 @@ public class SampleService {
         Page<SecurityEventEntity> result = repository.findAll(
                 SecurityEventSpecifications.withFilters(configId, from, to, category, action, minThreatScore),
                 pageable);
-        return new SamplePageResponse(
-                result.getContent().stream().map(sampleEventMapper::toApi).toList(),
-                resolvedLimit,
-                resolvedOffset,
-                result.getTotalElements());
+        return SamplePageResponse.builder()
+                .items(result.getContent().stream().map(sampleEventMapper::toApi).toList())
+                .limit(resolvedLimit)
+                .offset(resolvedOffset)
+                .total(result.getTotalElements())
+                .build();
     }
 }

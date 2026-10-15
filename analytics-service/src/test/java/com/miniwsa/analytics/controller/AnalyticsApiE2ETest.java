@@ -2,6 +2,7 @@ package com.miniwsa.analytics.controller;
 
 import com.miniwsa.analytics.repository.AlertDefinitionRepository;
 import com.miniwsa.analytics.repository.SecurityEventRepository;
+import com.miniwsa.analytics.support.ClasspathJson;
 import com.miniwsa.analytics.support.SecurityEventFixtures;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -149,15 +150,7 @@ class AnalyticsApiE2ETest {
     void alertsDefineAndEvaluate() throws Exception {
         MvcResult created = mockMvc.perform(post("/v1/alerts/define")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "configId": 14227,
-                                  "category": "INJECTION",
-                                  "metric": "event_count",
-                                  "window": "1h",
-                                  "threshold": 2
-                                }
-                                """))
+                        .content(ClasspathJson.load("fixtures/alerts/define-injection-1h-t2.json")))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").exists())
                 .andExpect(jsonPath("$.metric").value("event_count"))
@@ -173,6 +166,11 @@ class AnalyticsApiE2ETest {
         mockMvc.perform(get("/v1/alerts/evaluate").param("alertId", alertId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].alertId").value(alertId))
+                .andExpect(jsonPath("$[0].name").value("INJECTION · event_count ≥2 in 1h · config 14227"))
+                .andExpect(jsonPath("$[0].metric").value("event_count"))
+                .andExpect(jsonPath("$[0].window").value("1h"))
+                .andExpect(jsonPath("$[0].category").value("INJECTION"))
+                .andExpect(jsonPath("$[0].configId").value(14227))
                 .andExpect(jsonPath("$[0].firing").value(true))
                 .andExpect(jsonPath("$[0].value").value(2))
                 .andExpect(jsonPath("$[0].threshold").value(2));
@@ -182,25 +180,11 @@ class AnalyticsApiE2ETest {
     void alertsEvaluateAllReturnsEveryPersistedRule() throws Exception {
         mockMvc.perform(post("/v1/alerts/define")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "configId": 14227,
-                                  "metric": "event_count",
-                                  "window": "1h",
-                                  "threshold": 1
-                                }
-                                """))
+                        .content(ClasspathJson.load("fixtures/alerts/define-event-count-1h.json")))
                 .andExpect(status().isCreated());
         mockMvc.perform(post("/v1/alerts/define")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "configId": 14227,
-                                  "metric": "unique_ips",
-                                  "window": "1h",
-                                  "threshold": 1
-                                }
-                                """))
+                        .content(ClasspathJson.load("fixtures/alerts/define-unique-ips-1h.json")))
                 .andExpect(status().isCreated());
 
         mockMvc.perform(get("/v1/alerts/evaluate"))
@@ -212,13 +196,7 @@ class AnalyticsApiE2ETest {
     void alertsRejectInvalidBody() throws Exception {
         mockMvc.perform(post("/v1/alerts/define")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "metric": "",
-                                  "window": "5m",
-                                  "threshold": 1
-                                }
-                                """))
+                        .content(ClasspathJson.load("fixtures/alerts/define-empty-metric.json")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
     }
@@ -234,32 +212,32 @@ class AnalyticsApiE2ETest {
     void alertsRejectUnknownCategory() throws Exception {
         mockMvc.perform(post("/v1/alerts/define")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "configId": 14227,
-                                  "category": "NOPE",
-                                  "metric": "event_count",
-                                  "window": "5m",
-                                  "threshold": 1
-                                }
-                                """))
+                        .content(ClasspathJson.load("fixtures/alerts/define-unknown-category.json")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void alertsRejectDuplicateRule() throws Exception {
+        String body = ClasspathJson.load("fixtures/alerts/define-xss-5m-t7.json");
+        mockMvc.perform(post("/v1/alerts/define")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/v1/alerts/define")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.message").value(com.miniwsa.contracts.ErrorMessage.DUPLICATE_ALERT_RULE.getValue()));
     }
 
     @Test
     void alertsBlankCategoryPersistsAsNull() throws Exception {
         MvcResult created = mockMvc.perform(post("/v1/alerts/define")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "configId": 14227,
-                                  "category": "  ",
-                                  "metric": "event_count",
-                                  "window": "5m",
-                                  "threshold": 1
-                                }
-                                """))
+                        .content(ClasspathJson.load("fixtures/alerts/define-blank-category.json")))
                 .andExpect(status().isCreated())
                 .andReturn();
         String alertId = objectMapper.readTree(created.getResponse().getContentAsString()).get("id").asText();

@@ -1,6 +1,7 @@
 package com.miniwsa.analytics.controller;
 
 import com.miniwsa.analytics.repository.SecurityEventRepository;
+import com.miniwsa.analytics.support.ClasspathJson;
 import com.miniwsa.analytics.support.SecurityEventFixtures;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -60,14 +61,7 @@ class AnalyticsRateLimitE2ETest {
 
         mockMvc.perform(post("/v1/alerts/define")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "configId": 14227,
-                                  "metric": "event_count",
-                                  "window": "5m",
-                                  "threshold": 10
-                                }
-                                """))
+                        .content(ClasspathJson.load("fixtures/alerts/define-event-count-5m-t10.json")))
                 .andExpect(status().isCreated());
     }
 }

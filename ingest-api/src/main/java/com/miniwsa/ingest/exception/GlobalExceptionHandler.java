@@ -1,8 +1,12 @@
 package com.miniwsa.ingest.exception;
 
-import com.miniwsa.ingest.api.ErrorResponse;
+import com.miniwsa.contracts.ApiErrors;
+import com.miniwsa.contracts.ApiException;
+import com.miniwsa.contracts.ErrorCode;
+import com.miniwsa.contracts.ErrorMessage;
+import com.miniwsa.contracts.ErrorReason;
+import com.miniwsa.contracts.ErrorResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -14,26 +18,28 @@ import java.util.List;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(IngestValidationException.class)
-    public ResponseEntity<ErrorResponse> handleValidation(IngestValidationException ex) {
-        return ResponseEntity.badRequest()
-                .body(new ErrorResponse("VALIDATION_ERROR", ex.getMessage(), ex.getDetails()));
+    @ExceptionHandler(ApiException.class)
+    public ResponseEntity<ErrorResponse> handleApi(ApiException ex) {
+        return ResponseEntity.status(ex.getHttpStatus()).body(ex.toResponse());
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorResponse> handleUnreadable(HttpMessageNotReadableException ex) {
         log.warn("Unreadable ingest payload");
         return ResponseEntity.badRequest()
-                .body(new ErrorResponse(
-                        "VALIDATION_ERROR",
-                        "Request body is invalid JSON or uses an unsupported value",
-                        List.of(ErrorDetails.of(null, "body", ThrowableMessages.rootMessage(ex)))));
+                .body(ApiErrors.response(
+                        ErrorCode.VALIDATION_ERROR,
+                        ErrorMessage.BODY_UNREADABLE,
+                        List.of(ApiErrors.detail(
+                                null,
+                                "body",
+                                ThrowableMessages.rootMessageOr(ex, ErrorReason.INVALID_EVENT_JSON.getValue())))));
     }
 
     @ExceptionHandler(EventPublishException.class)
     public ResponseEntity<ErrorResponse> handlePublish(EventPublishException ex) {
         log.error("Kafka publish failed");
-        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                .body(new ErrorResponse("BROKER_UNAVAILABLE", "Event broker is unavailable", List.of()));
+        return ResponseEntity.status(ApiException.brokerUnavailable().getHttpStatus())
+                .body(ApiException.brokerUnavailable().toResponse());
     }
 }

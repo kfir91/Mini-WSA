@@ -1,7 +1,8 @@
 package com.miniwsa.ingest.service;
 
+import com.miniwsa.contracts.ErrorReason;
 import com.miniwsa.contracts.SecurityEventMessage;
-import com.miniwsa.ingest.api.ErrorDetail;
+import com.miniwsa.contracts.ErrorDetail;
 import com.miniwsa.ingest.client.KafkaEventProducer;
 import com.miniwsa.ingest.exception.ErrorDetails;
 import com.miniwsa.ingest.exception.IngestValidationException;
@@ -28,13 +29,13 @@ public class EventIngestService {
     public void ingest(List<SecurityEventMessage> events) {
         if (events == null || events.isEmpty()) {
             throw new IngestValidationException(List.of(
-                    ErrorDetails.of(null, "body", "Request body must contain an event or a non-empty array")));
+                    ErrorDetails.of(null, "body", ErrorReason.BODY_EMPTY)));
         }
         List<ErrorDetail> details = new ArrayList<>();
         for (int i = 0; i < events.size(); i++) {
             SecurityEventMessage event = events.get(i);
             if (event == null) {
-                details.add(ErrorDetails.of(i, "body", "Event must not be null"));
+                details.add(ErrorDetails.of(i, "body", ErrorReason.EVENT_NULL));
                 continue;
             }
             Set<ConstraintViolation<SecurityEventMessage>> violations = validator.validate(event);

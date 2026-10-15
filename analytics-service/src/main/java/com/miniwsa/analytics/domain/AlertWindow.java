@@ -1,5 +1,7 @@
 package com.miniwsa.analytics.domain;
 
+import com.miniwsa.contracts.ApiException;
+import com.miniwsa.contracts.ErrorMessage;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
@@ -23,6 +25,6 @@ public enum AlertWindow {
                 return window;
             }
         }
-        throw new IllegalArgumentException("window must be 5m or 1h");
+        throw ApiException.validation(ErrorMessage.INVALID_WINDOW);
     }
 }

@@ -1,5 +1,7 @@
 package com.miniwsa.analytics.repository;
 
+import com.miniwsa.contracts.ApiException;
+import com.miniwsa.contracts.ErrorMessage;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
@@ -11,7 +13,7 @@ public class OffsetPageRequest implements Pageable {
 
     public OffsetPageRequest(int offset, int limit, Sort sort) {
         if (limit < 1) {
-            throw new IllegalArgumentException("limit must be at least 1");
+            throw ApiException.validation(ErrorMessage.INVALID_LIMIT);
         }
         this.offset = Math.max(0, offset);
         this.limit = limit;

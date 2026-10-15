@@ -5,6 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -20,6 +21,7 @@ import java.time.Instant;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class AlertDefinitionEntity {
 
     @Id
@@ -40,6 +42,9 @@ public class AlertDefinitionEntity {
 
     @Column(name = "threshold", nullable = false)
     private Integer threshold;
+
+    @Column(name = "rule_key", nullable = false, length = 128)
+    private String ruleKey;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;

@@ -3,6 +3,8 @@ package com.miniwsa.analytics.service;
 import com.miniwsa.analytics.api.TimeseriesPoint;
 import com.miniwsa.analytics.api.TimeseriesResponse;
 import com.miniwsa.analytics.repository.TimeseriesBucketQuery;
+import com.miniwsa.contracts.ApiException;
+import com.miniwsa.contracts.ErrorMessage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -26,11 +28,11 @@ public class TimeseriesService {
     public TimeseriesResponse timeseries(String interval, Long configId, Instant from, Instant to) {
         String pgInterval = INTERVALS.get(interval);
         if (pgInterval == null) {
-            throw new IllegalArgumentException("interval must be one of 1m, 5m, 1h");
+            throw ApiException.validation(ErrorMessage.INVALID_INTERVAL);
         }
         var points = timeseriesBucketQuery.query(pgInterval, configId, from, to).stream()
-                .map(row -> new TimeseriesPoint(row.getBucket(), row.getCount()))
+                .map(row -> TimeseriesPoint.builder().bucket(row.getBucket()).count(row.getCount()).build())
                 .toList();
-        return new TimeseriesResponse(interval, points);
+        return TimeseriesResponse.builder().interval(interval).points(points).build();
     }
 }

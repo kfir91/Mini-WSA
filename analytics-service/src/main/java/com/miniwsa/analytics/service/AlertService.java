@@ -11,7 +11,9 @@ import com.miniwsa.analytics.mapper.AlertMapper;
 import com.miniwsa.analytics.repository.AlertDefinitionRepository;
 import com.miniwsa.analytics.repository.SecurityEventRepository;
 import com.miniwsa.analytics.repository.SecurityEventSpecifications;
+import com.miniwsa.contracts.ApiException;
 import com.miniwsa.contracts.AttackCategory;
+import com.miniwsa.contracts.ErrorMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -37,25 +39,31 @@ public class AlertService {
 
     @Transactional
     public AlertDefinitionResponse define(DefineAlertRequest request) {
-        AlertMetric metric = AlertMetric.fromWire(request.getMetric());
-        AlertWindow window = AlertWindow.fromWire(request.getWindow());
+        AlertMetric metric = AlertMetric.fromWire(request.getMetric().getValue());
+        AlertWindow window = AlertWindow.fromWire(request.getWindow().getValue());
         String category = request.getCategory();
         if (category != null && !category.isBlank()) {
             try {
                 AttackCategory.valueOf(category);
             } catch (IllegalArgumentException ex) {
-                throw new IllegalArgumentException("category must be a valid attack category");
+                throw ApiException.validation(ErrorMessage.INVALID_CATEGORY);
             }
         } else {
             category = null;
         }
-        AlertDefinition definition = new AlertDefinition(
-                UUID.randomUUID().toString(),
-                request.getConfigId(),
-                category,
-                metric,
-                window,
-                request.getThreshold());
+        String ruleKey = AlertDefinition.ruleKey(
+                request.getConfigId(), category, metric, window, request.getThreshold());
+        if (alertDefinitionRepository.existsByRuleKey(ruleKey)) {
+            throw ApiException.validation(ErrorMessage.DUPLICATE_ALERT_RULE);
+        }
+        AlertDefinition definition = AlertDefinition.builder()
+                .id(UUID.randomUUID().toString())
+                .configId(request.getConfigId())
+                .category(category)
+                .metric(metric)
+                .window(window)
+                .threshold(request.getThreshold())
+                .build();
         AlertDefinitionEntity saved = alertDefinitionRepository.save(alertMapper.toEntity(definition, clock.instant()));
         log.info("Defined alert {}", saved.getId());
         return alertMapper.toResponse(alertMapper.toDomain(saved));
@@ -73,7 +81,7 @@ public class AlertService {
     public AlertEvaluationResponse evaluate(String alertId) {
         AlertDefinition definition = alertDefinitionRepository.findById(alertId)
                 .map(alertMapper::toDomain)
-                .orElseThrow(() -> new IllegalStateException("Unknown alert id"));
+                .orElseThrow(() -> ApiException.notFound(ErrorMessage.UNKNOWN_ALERT));
         return evaluateDefinition(definition);
     }
 
@@ -88,7 +96,6 @@ public class AlertService {
             value = securityEventRepository.count(SecurityEventSpecifications.withFilters(
                     definition.getConfigId(), since, null, definition.getCategory(), null, null));
         }
-        return new AlertEvaluationResponse(
-                definition.getId(), value >= definition.getThreshold(), value, definition.getThreshold());
+        return alertMapper.toEvaluationResponse(definition, value);
     }
 }

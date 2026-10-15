@@ -73,8 +73,10 @@
                             <generateModelDocumentation>false</generateModelDocumentation>
                             <generateApiDocumentation>false</generateApiDocumentation>
                             <skipValidateSpec>true</skipValidateSpec>
+                            <!-- Error models live in miniwsa-contracts; EventsApi is hand-written (JsonNode oneOf). -->
+                            <skip>true</skip>
                             <generateApis>false</generateApis>
-                            <modelsToGenerate>ErrorResponse,ErrorDetail</modelsToGenerate>
+                            <generateModels>false</generateModels>
                             <typeMappings>
                                 <typeMapping>OffsetDateTime=java.time.Instant</typeMapping>
                             </typeMappings>
@@ -93,6 +95,7 @@
                                 <useTags>true</useTags>
                                 <annotationLibrary>none</annotationLibrary>
                                 <documentationProvider>none</documentationProvider>
+                                <generateBuilders>true</generateBuilders>
                             </configOptions>
                         </configuration>
                     </execution>

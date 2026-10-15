@@ -1,17 +1,21 @@
 package com.miniwsa.ingest.exception;
 
-import com.miniwsa.ingest.api.ErrorDetail;
-import lombok.Getter;
+import com.miniwsa.contracts.ApiException;
+import com.miniwsa.contracts.ErrorDetail;
+import com.miniwsa.contracts.ErrorMessage;
 
 import java.util.List;
 
-@Getter
-public class IngestValidationException extends RuntimeException {
-
-    private final List<ErrorDetail> details;
+/**
+ * Ingest validation failure; maps to OpenAPI {@code VALIDATION_ERROR}.
+ */
+public class IngestValidationException extends ApiException {
 
     public IngestValidationException(List<ErrorDetail> details) {
-        super("Validation failed");
-        this.details = details;
+        super(
+                com.miniwsa.contracts.ErrorCode.VALIDATION_ERROR,
+                ErrorMessage.VALIDATION_FAILED,
+                400,
+                details);
     }
 }

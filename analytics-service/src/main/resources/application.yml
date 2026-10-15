@@ -38,6 +38,14 @@ miniwsa:
     repeat-offender-window: ${REPEAT_OFFENDER_WINDOW:10m}
   rate-limit:
     requests-per-minute: ${RATE_LIMIT_PER_MINUTE:100}
+  adminer:
+    # Browser URL for Adminer (host port). User/password/db = spring.datasource.*
+    url: ${ADMINER_URL:http://localhost:8082/}
+    # Hostname Adminer uses inside Docker/SSH (Compose service/container DNS).
+    # Required when JVM JDBC host is 127.0.0.1 via a published port / tunnel.
+    server: ${ADMINER_DEFAULT_SERVER:miniwsa-postgres}
+    # Empty → database name parsed from spring.datasource.url
+    database: ${ADMINER_DB:}
 
 springdoc:
   # api-docs must stay enabled or swagger-ui itself returns 404 (springdoc 2.x).

@@ -1,5 +1,7 @@
 package com.miniwsa.analytics.web;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.miniwsa.contracts.ApiException;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import jakarta.servlet.FilterChain;
@@ -21,9 +23,13 @@ public class IpRateLimitFilter extends OncePerRequestFilter {
 
     private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
     private final int requestsPerMinute;
+    private final ObjectMapper objectMapper;
 
-    public IpRateLimitFilter(@Value("${miniwsa.rate-limit.requests-per-minute}") int requestsPerMinute) {
+    public IpRateLimitFilter(
+            @Value("${miniwsa.rate-limit.requests-per-minute}") int requestsPerMinute,
+            ObjectMapper objectMapper) {
         this.requestsPerMinute = requestsPerMinute;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -41,9 +47,10 @@ public class IpRateLimitFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
             return;
         }
-        response.setStatus(429);
+        ApiException limited = ApiException.rateLimited();
+        response.setStatus(limited.getHttpStatus());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.getWriter().write("{\"code\":\"RATE_LIMITED\",\"message\":\"Too many requests\",\"details\":[]}");
+        objectMapper.writeValue(response.getWriter(), limited.toResponse());
     }
 
     private Bucket newBucket() {

@@ -130,6 +130,8 @@ paths:
                   $ref: '#/components/schemas/AlertEvaluationResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
 components:
   parameters:
     ConfigId:
@@ -157,12 +159,48 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            validation:
+              value:
+                code: VALIDATION_ERROR
+                message: Request is invalid
+                details: []
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            missing:
+              value:
+                code: NOT_FOUND
+                message: Resource not found
+                details: []
+    InternalError:
+      description: Unexpected server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            unexpected:
+              value:
+                code: INTERNAL_ERROR
+                message: Unexpected error
+                details: []
     TooManyRequests:
       description: Rate limited
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            rateLimited:
+              value:
+                code: RATE_LIMITED
+                message: Too many requests
+                details: []
   schemas:
     TimeRange:
       type: object
@@ -363,10 +401,13 @@ components:
         category:
           type: string
           nullable: true
+          description: Attack category wire value (e.g. INJECTION); omit or blank for any
         metric:
           type: string
+          enum: [event_count, unique_ips]
         window:
           type: string
+          enum: [5m, 1h]
         threshold:
           type: integer
           format: int32
@@ -393,10 +434,13 @@ components:
           format: int32
     AlertEvaluationResponse:
       type: object
-      required: [alertId, firing, value, threshold]
+      required: [alertId, name, firing, value, threshold, metric, window]
       properties:
         alertId:
           type: string
+        name:
+          type: string
+          description: Human-readable rule summary (what this alert checks)
         firing:
           type: boolean
         value:
@@ -405,28 +449,24 @@ components:
         threshold:
           type: integer
           format: int32
-    ErrorDetail:
-      type: object
-      properties:
-        index:
+        metric:
+          type: string
+        window:
+          type: string
+        category:
+          type: string
+          nullable: true
+        configId:
           type: integer
-          format: int32
+          format: int64
           nullable: true
-        field:
-          type: string
-          nullable: true
-        reason:
-          type: string
-          nullable: true
+    ErrorCode:
+      $ref: '../../../../miniwsa-contracts/src/main/resources/open-api/api-errors.yaml#/components/schemas/ErrorCode'
+    ErrorMessage:
+      $ref: '../../../../miniwsa-contracts/src/main/resources/open-api/api-errors.yaml#/components/schemas/ErrorMessage'
+    ErrorReason:
+      $ref: '../../../../miniwsa-contracts/src/main/resources/open-api/api-errors.yaml#/components/schemas/ErrorReason'
+    ErrorDetail:
+      $ref: '../../../../miniwsa-contracts/src/main/resources/open-api/api-errors.yaml#/components/schemas/ErrorDetail'
     ErrorResponse:
-      type: object
-      required: [code, message, details]
-      properties:
-        code:
-          type: string
-        message:
-          type: string
-        details:
-          type: array
-          items:
-            $ref: '#/components/schemas/ErrorDetail'
+      $ref: '../../../../miniwsa-contracts/src/main/resources/open-api/api-errors.yaml#/components/schemas/ErrorResponse'

@@ -3,6 +3,7 @@ package com.miniwsa.ingest.controller;
 import com.miniwsa.contracts.SecurityEventMessage;
 import com.miniwsa.ingest.client.KafkaEventProducer;
 import com.miniwsa.ingest.exception.EventPublishException;
+import com.miniwsa.ingest.support.ClasspathJson;
 import com.miniwsa.ingest.support.EventFixtures;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -53,11 +54,9 @@ class EventIngestApiE2ETest {
 
     @Test
     void arrayReturns201AndPublishesEach() throws Exception {
-        String first = EventFixtures.validJson().replace("evt-00132", "evt-batch-1");
-        String second = EventFixtures.validJson().replace("evt-00132", "evt-batch-2");
         mockMvc.perform(post("/v1/events/ingest")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("[" + first + "," + second + "]"))
+                        .content(ClasspathJson.load("fixtures/security-event-batch.json")))
                 .andExpect(status().isCreated());
 
         verify(kafkaEventProducer, times(2)).publish(any(SecurityEventMessage.class));
@@ -67,27 +66,25 @@ class EventIngestApiE2ETest {
     void emptyArrayReturns400() throws Exception {
         mockMvc.perform(post("/v1/events/ingest")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("[]"))
+                        .content(ClasspathJson.load("fixtures/empty-array.json")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
     }
 
     @Test
     void invalidEnumReturns400() throws Exception {
-        String bad = EventFixtures.validJson().replace("\"DENY\"", "\"DROP\"");
         mockMvc.perform(post("/v1/events/ingest")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(bad))
+                        .content(ClasspathJson.load("fixtures/security-event-invalid-action.json")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
     }
 
     @Test
     void blankEventIdReturns400() throws Exception {
-        String bad = EventFixtures.validJson().replace("\"evt-00132\"", "\"\"");
         mockMvc.perform(post("/v1/events/ingest")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(bad))
+                        .content(ClasspathJson.load("fixtures/security-event-blank-event-id.json")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
     }
@@ -108,7 +105,7 @@ class EventIngestApiE2ETest {
     void nullBodyReturns400() throws Exception {
         mockMvc.perform(post("/v1/events/ingest")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("null"))
+                        .content(ClasspathJson.load("fixtures/null-body.json")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
     }
@@ -117,7 +114,7 @@ class EventIngestApiE2ETest {
     void nonObjectBodyReturns400() throws Exception {
         mockMvc.perform(post("/v1/events/ingest")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("42"))
+                        .content(ClasspathJson.load("fixtures/number-body.json")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
     }
@@ -126,7 +123,7 @@ class EventIngestApiE2ETest {
     void unreadableJsonReturns400() throws Exception {
         mockMvc.perform(post("/v1/events/ingest")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{"))
+                        .content(ClasspathJson.load("fixtures/unreadable-body.txt")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
     }
