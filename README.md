@@ -299,11 +299,10 @@ Attack type mapping: INJECTION → SQL/Command Injection, XSS → Cross-Site Scr
 
 Platform and reliability:
 
-- Run ingest and analytics as Compose services too, with Kafka listeners that work for containers as well as the host (Adminer and Kafka UI are already in Compose).
+- **Stronger event durability (avoid silent loss).** There is no ingest state machine (`accepted` / `progressing` / `done`); HTTP 201 means Kafka broker ack only, not a Postgres write. Best fix: transactional outbox before 201 (durable accept → relay → Kafka), plus all-or-nothing batch publish, a reliable DLQ (wait on send + replay path), and lag/retention monitoring. Keep idempotent Postgres inserts by `event_id`. Client-visible processing statuses are optional observability, not a substitute for durable accept.
+- **S3 (or similar object storage) for long-term event retention.** Archive older enriched events out of PostgreSQL into cheap object storage so hot query counts and table size stay bounded, while historical raw/enriched data remains available for audit or offline analysis.
 - Add an end-to-end test: post an event to ingest, wait for the consumer, assert a row and a summary count.
 - Build a small web page that charts `/v1/stats/timeseries` and shows `/v1/stats/summary`.
-- Make ingest batch publish all-or-nothing (today a mid-batch Kafka failure can leave some events already sent).
-- Stronger consumer error handling around poison messages and clearer DLQ inspection in day-to-day ops.
 - Move DB (and any future API) credentials out of env files into a secret manager (e.g. Vault, cloud secret store, or Kubernetes Secrets), and inject them at runtime instead of keeping passwords/keys on disk or in plain process env.
 
 AI / LLM (on top of the current pipeline, not instead of it):
