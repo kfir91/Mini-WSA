@@ -33,14 +33,14 @@ Local security analytics pipeline for WAF-style DLR events.
               |  POST /v1/events/ingest
               v
         ingest-api :8081
-        (validate â†’ stamp receivedAt â†’ outbox TX)
+        (validate → stamp receivedAt → outbox TX)
               |  HTTP 201 = durable outbox accept
-              |  relay (async) â†’ Kafka produce
+              |  relay (async) → Kafka produce
               v
    security-events.raw  ----------->  analytics-service :8080
    security-events.dlq  <-----------  (poison / exhausted retries)
               |                         |
-              |                         |  consume â†’ classify/score â†’ Postgres
+              |                         |  consume → classify/score → Postgres
               |                         v
               |                    PostgreSQL 16
               |                         |
@@ -60,7 +60,7 @@ Local security analytics pipeline for WAF-style DLR events.
 
 ### Secrets (HashiCorp Vault)
 
-Credentials are an **infrastructure/config** concern â€” **outside** `Controller â†’ Service â†’ Repository`. Business layers keep reading `spring.datasource.password` from the Spring `Environment`; they never call Vault APIs.
+Credentials are an **infrastructure/config** concern — **outside** `Controller → Service → Repository`. Business layers keep reading `spring.datasource.password` from the Spring `Environment`; they never call Vault APIs.
 
 | Store | Holds |
 |---|---|
@@ -69,17 +69,17 @@ Credentials are an **infrastructure/config** concern â€” **outside** `Contr
 | `.vault/` (gitignored) | AppRole `role_id`/`secret_id`, persisted `postgres_password` (survives Vault `-dev` restarts) |
 
 ```text
-  scripts/vault-seed.* â”€â”€â–º Vault KV secret/wsa/local (AppRole)
-         â”‚                      â”‚
-         â”‚                      â”œâ”€â”€ Spring Cloud Vault (AppRole login)
-         â”‚                      â”‚         â””â”€â”€ spring.datasource.password
-         â”‚                      â”‚                   â””â”€â”€ ingest + analytics datasources
-         â””â”€â”€ ephemeral shell â”€â”€â–º Compose Postgres / Adminer env at `up` time only
+  scripts/vault-seed.* ──► Vault KV secret/wsa/local (AppRole)
+         │                      │
+         │                      ├── Spring Cloud Vault (AppRole login)
+         │                      │         └── spring.datasource.password
+         │                      │                   └── ingest + analytics datasources
+         └── ephemeral shell ──► Compose Postgres / Adminer env at `up` time only
 ```
 
-- **Auth (local):** AppRole role `wsa-local`. Production systems often swap to K8s/AWS/Azure auth with the same KV paths (not used here â€” no K8s/AWS in this project).
+- **Auth (local):** AppRole role `wsa-local`. Production systems often swap to K8s/AWS/Azure auth with the same KV paths (not used here — no K8s/AWS in this project).
 - **Apps:** Spring Cloud Vault only (no Eureka). No `SPRING_DATASOURCE_PASSWORD` in process env; password comes from Vault key `spring.datasource.password`.
-- **Adminer:** `/adminer-go/config` (analytics) returns URL/server/user/db only â€” **never** the password. PHP autologin inside the Adminer container uses Compose-injected secrets.
+- **Adminer:** `/adminer-go/config` (analytics) returns URL/server/user/db only — **never** the password. PHP autologin inside the Adminer container uses Compose-injected secrets.
 - **Tests:** Parent Surefire sets `VAULT_ENABLED=false` (and e2e Failsafe under `-Pe2e`); apps also use `spring.cloud.vault.enabled=false` in test/`e2e` profiles. H2 for module tests; Testcontainers only in `e2e`. Default `mvn verify` stays Docker-free for the JaCoCo gate.
 - **Hygiene:** Never put DB passwords or Sonar tokens in `.env`. Never commit `.env` or `.vault/`. Local Compose still passes the DB password into Postgres/Adminer **container** env at `up` time (Docker limitation).
 - **Bootstrap:** `scripts/vault-seed.ps1` / `vault-seed.sh` run via `docker compose exec` (no host Vault CLI).
@@ -88,27 +88,27 @@ Credentials are an **infrastructure/config** concern â€” **outside** `Contr
 
 | Module | Port | Owns | Does not own |
 |---|---|---|---|
-| `contracts` | â€” | Wire models from OpenAPI (`SecurityEventMessage`, enums) | Scoring, JPA, Spring, query DTOs |
+| `contracts` | — | Wire models from OpenAPI (`SecurityEventMessage`, enums) | Scoring, JPA, Spring, query DTOs |
 | `ingest-api` | 8081 | Validate, stamp `receivedAt`, outbox, Kafka relay, ingest errors | Enrichment DB, classify/score, alerts |
 | `analytics-service` | 8080 | Consume Kafka, enrich, Postgres, read APIs, alerts, rate limit on stats/samples | Ingest HTTP, browser UI |
 | `client` | 8084 | React hub + Stats SPA; proxies `/v1/**` and `/demo/**` to analytics | Business logic, DB, Kafka |
-| `generator` | â€” | CLI synthetic waves (uses `contracts` jar) | Persistence, OpenAPI codegen |
-| `e2e` | â€” | Opt-in `EventFlowIT` (Testcontainers Postgres + Kafka); profile `-Pe2e` | Default JaCoCo gate / unit suite |
-| `coverage` | â€” | Aggregated JaCoCo report after `mvn verify` | Application code |
+| `generator` | — | CLI synthetic waves (uses `contracts` jar) | Persistence, OpenAPI codegen |
+| `e2e` | — | Opt-in `EventFlowIT` (Testcontainers Postgres + Kafka); profile `-Pe2e` | Default JaCoCo gate / unit suite |
+| `coverage` | — | Aggregated JaCoCo report after `mvn verify` | Application code |
 
 ### Layers
 
-**ingest-api:** OpenAPI â†’ `controller` â†’ `service` â†’ outbox `entity`/`repository` + Kafka `client` (relay). No domain/enrichment schema.
+**ingest-api:** OpenAPI → `controller` → `service` → outbox `entity`/`repository` + Kafka `client` (relay). No domain/enrichment schema.
 
-**analytics-service:** OpenAPI â†’ `controller` â†’ `service` â†’ `manager`/`domain` â†’ `repository`/`entity`. MapStruct mappers sit between API/contract and entity. Kafka consumer/DLQ are adapters only.
+**analytics-service:** OpenAPI → `controller` → `service` → `manager`/`domain` → `repository`/`entity`. MapStruct mappers sit between API/contract and entity. Kafka consumer/DLQ are adapters only.
 
-**client:** React SPA (`client/frontend/` â†’ generated `static/`) + thin reverse proxy to analytics (`AnalyticsProxyController`). No domain, JPA, or OpenAPI ownership.
+**client:** React SPA (`client/frontend/` → generated `static/`) + thin reverse proxy to analytics (`AnalyticsProxyController`). No domain, JPA, or OpenAPI ownership.
 
 ```text
-api (generated) â”€â”€> controller â”€â”€> service â”€â”€> manager/domain
-                                      â”‚
+api (generated) ──> controller ──> service ──> manager/domain
+                                      │
                                    mapper
-                                      â”‚
+                                      │
                                    entity/repository
 ```
 
@@ -134,7 +134,7 @@ Use `/swagger-ui/index.html` (not bare `/swagger-ui.html`). Restart apps after O
 - Primary UI: http://localhost:8084/ (hub) and http://localhost:8084/stats when **client** is running
 - Repo-root [`index.html`](index.html) only redirects to `:8084` (do not open it as a standalone hub)
 
-Browser calls to `/v1/**` and `/demo/**` are **proxied** by client â†’ analytics (`wsa.client.analytics-base-url` / `WSA_ANALYTICS_BASE_URL`, default `http://localhost:8080`). **Adminer:** hub link â†’ http://localhost:8080/adminer-go.html (owned by analytics). Do not hand-build a `localhost:8082/?pgsql=postgres&â€¦` URL with the wrong server name.
+Browser calls to `/v1/**` and `/demo/**` are **proxied** by client → analytics (`wsa.client.analytics-base-url` / `WSA_ANALYTICS_BASE_URL`, default `http://localhost:8080`). **Adminer:** hub link → http://localhost:8080/adminer-go.html (owned by analytics). Do not hand-build a `localhost:8082/?pgsql=postgres&…` URL with the wrong server name.
 
 ### Client UI (React SPA)
 
@@ -142,18 +142,18 @@ Same-origin **React + TypeScript (Vite)** app owned by the **`client`** module. 
 
 | | |
 |---|---|
-| URLs | http://localhost:8084/ (shared shell + sidebar) Â· `/apis` Â· `/alerts` Â· `/rate` Â· `/infra` Â· `/stats` |
-| Source | [`client/frontend/`](client/frontend/) â€” see also [`client/frontend/README.md`](client/frontend/README.md) |
-| Build output | `client/src/main/resources/static/` (**generated** â€” gitignored; do not hand-edit) |
+| URLs | http://localhost:8084/ (shared shell + sidebar) · `/apis` · `/alerts` · `/rate` · `/infra` · `/stats` |
+| Source | [`client/frontend/`](client/frontend/) — see also [`client/frontend/README.md`](client/frontend/README.md) |
+| Build output | `client/src/main/resources/static/` (**generated** — gitignored; do not hand-edit) |
 | Maven | `frontend-maven-plugin` runs `yarn install` + `yarn build` on `generate-resources`. Skip with `-Dfrontend.skip=true` (property on `client/pom.xml`) when `static/` is already built |
-| Layers | Browser â†’ React SPA + `AnalyticsProxyController` â†’ analytics OpenAPI â†’ services â†’ Postgres |
+| Layers | Browser → React SPA + `AnalyticsProxyController` → analytics OpenAPI → services → Postgres |
 | Config | Ports/paths/defaults in [`appConfig.ts`](client/frontend/src/config/appConfig.ts); optional `VITE_WSA_HOST`, `VITE_WSA_*_PORT` |
 | i18n | UI copy in [`en.json`](client/frontend/src/i18n/locales/en.json) via `react-i18next` |
 | Chart | `chart.js` / `react-chartjs-2` (npm) |
-| Dev | `cd client/frontend && yarn && yarn dev` (Vite proxies `/v1` + `/demo` â†’ analytics; ports from `VITE_WSA_*`) |
+| Dev | `cd client/frontend && yarn && yarn dev` (Vite proxies `/v1` + `/demo` → analytics; ports from `VITE_WSA_*`) |
 | Constraints | Open via `:8084` (or Vite). Proxied stats/samples count toward analytics **100 req/IP/min** |
 
-Frontend layout: `api/` (HTTP) â†’ `hooks/` â†’ `pages/` + `components/`; Spring only serves the built SPA and proxies APIs.
+Frontend layout: `api/` (HTTP) → `hooks/` → `pages/` + `components/`; Spring only serves the built SPA and proxies APIs.
 
 Stats filters: optional `configId`, `interval` (`1m` / `5m` / `1h`), optional `from` / `to` (defaults from `appConfig`).
 
@@ -167,30 +167,30 @@ Stats filters: optional `configId`, `interval` (`1m` / `5m` / `1h`), optional `f
 |---|---|
 | 1. Accept | `EventIngestService` validates, stamps `receivedAt`, inserts a `PENDING` row into `ingest_outbox` (unique `event_id`) in one DB transaction, then returns **HTTP 201**. |
 | 2. Relay | `OutboxRelayService` polls every ~1s (`wsa.outbox.poll-interval-ms`). It loads pending rows with `FOR UPDATE SKIP LOCKED`, then publishes each payload to Kafka **outside** any DB transaction. |
-| 3. Outcome | Success â†’ `PUBLISHED`. Failure â†’ bump `attempt_count`, stay `PENDING` until `max-attempts` (default 5) â†’ `FAILED`. |
+| 3. Outcome | Success → `PUBLISHED`. Failure → bump `attempt_count`, stay `PENDING` until `max-attempts` (default 5) → `FAILED`. |
 
-**HTTP 201** means â€œdurably accepted into the outbox,â€ not â€œalready on Kafkaâ€ and not â€œalready in analytics Postgres.â€ Duplicate `eventId` values are idempotent (unique constraint; ingest skips if already present). Backlog: Micrometer gauge `ingest_outbox_pending` on ingest actuator.
+**HTTP 201** means “durably accepted into the outbox,” not “already on Kafka” and not “already in analytics Postgres.” Duplicate `eventId` values are idempotent (unique constraint; ingest skips if already present). Backlog: Micrometer gauge `ingest_outbox_pending` on ingest actuator.
 
 ```text
   POST /v1/events/ingest
-        â”‚
-        â–¼
+        │
+        ▼
   validate + stamp receivedAt
-        â”‚
-        â–¼
-  INSERT ingest_outbox (PENDING)  â”€â”€TXâ”€â”€â–º  HTTP 201
-        â”‚
-        â”‚  (later, OutboxRelayService)
-        â–¼
-  load PENDING (SKIP LOCKED) â†’ Kafka produce â†’ PUBLISHED
-                                      â”” retries exhausted â†’ FAILED
+        │
+        ▼
+  INSERT ingest_outbox (PENDING)  ──TX──►  HTTP 201
+        │
+        │  (later, OutboxRelayService)
+        ▼
+  load PENDING (SKIP LOCKED) → Kafka produce → PUBLISHED
+                                      └ retries exhausted → FAILED
 ```
 
 Config defaults (`application.yml` / env): `OUTBOX_POLL_INTERVAL_MS=1000`, `OUTBOX_BATCH_SIZE=50`, `OUTBOX_MAX_ATTEMPTS=5`, `OUTBOX_RELAY_ENABLED=true`.
 
 ## Quick start (bootstrap)
 
-From the repo root, these scripts install missing tools when possible, seed Vault, start Compose, build, run **analytics â†’ ingest â†’ client**, and smoke-test until localhost answers.
+From the repo root, these scripts install missing tools when possible, seed Vault, start Compose, build, run **analytics → ingest → client**, and smoke-test until localhost answers.
 
 ```powershell
 # Windows (PowerShell)
@@ -206,7 +206,7 @@ chmod +x scripts/*.sh generator/*.sh
 | Windows | macOS | Meaning |
 |---|---|---|
 | `-SkipInstall` | `--skip-install` | Skip winget/brew (tools already present) |
-| `-FullVerify` | `--full-verify` | `mvn clean verify` (JaCoCo â‰¥95%) instead of `install -DskipTests` |
+| `-FullVerify` | `--full-verify` | `mvn clean verify` (JaCoCo ≥95%) instead of `install -DskipTests` |
 | `-SkipApps` | `--skip-apps` | Build + infra only |
 | `-SkipCompose` | `--skip-compose` | Skip `docker compose up` |
 
@@ -249,7 +249,7 @@ Reboot if Docker asks, start **Docker Desktop**, wait until it is running.
 
 If Docker reports *hypervisor is not running*:
 
-- Task Manager â†’ Performance â†’ CPU â†’ **Virtualization: Enabled** (else enable VT-x/AMD-V in BIOS).
+- Task Manager → Performance → CPU → **Virtualization: Enabled** (else enable VT-x/AMD-V in BIOS).
 - Admin PowerShell: if `bcdedit /enum "{current}"` shows `hypervisorlaunchtype Off`, run `bcdedit /set hypervisorlaunchtype Auto` and restart.
 - Enable features if needed, then reboot:
 
@@ -259,7 +259,7 @@ Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-L
 Enable-WindowsOptionalFeature -Online -FeatureName HypervisorPlatform -All -NoRestart
 ```
 
-- Clear stale **Docker Toolbox** / `docker-machine` env (old `192.168.99.100`). Bootstrapâ€™s `Clear-StaleDockerEnv` also drops `DOCKER_MACHINE_NAME` / `DOCKER_TOOLBOX_INSTALL_PATH` and prefers Docker Desktopâ€™s named pipe when present:
+- Clear stale **Docker Toolbox** / `docker-machine` env (old `192.168.99.100`). Bootstrap’s `Clear-StaleDockerEnv` also drops `DOCKER_MACHINE_NAME` / `DOCKER_TOOLBOX_INSTALL_PATH` and prefers Docker Desktop’s named pipe when present:
 
 ```powershell
 [Environment]::SetEnvironmentVariable("DOCKER_HOST", $null, "User")
@@ -341,9 +341,9 @@ docker compose --env-file .env up -d
 docker compose --env-file .env ps
 ```
 
-Starts Vault `:8200`, Postgres `:5432`, Kafka `:9092`, Adminer `:8082`, Kafka UI `:8083` â€” **not** Sonar. Wait until **vault**, **postgres**, and **kafka** are `healthy`.
+Starts Vault `:8200`, Postgres `:5432`, Kafka `:9092`, Adminer `:8082`, Kafka UI `:8083` — **not** Sonar. Wait until **vault**, **postgres**, and **kafka** are `healthy`.
 
-If you previously used a different Postgres password in a volume, keep `.vault/postgres_password` stable **or** run `docker compose down -v` once (data loss) after a fresh seed â€” Postgres applies `POSTGRES_PASSWORD` only on first volume init. On a brand-new empty database, start **analytics-service before ingest-api** so Flyway owns the shared schema cleanly (ingest uses a separate history table for outbox).
+If you previously used a different Postgres password in a volume, keep `.vault/postgres_password` stable **or** run `docker compose down -v` once (data loss) after a fresh seed — Postgres applies `POSTGRES_PASSWORD` only on first volume init. On a brand-new empty database, start **analytics-service before ingest-api** so Flyway owns the shared schema cleanly (ingest uses a separate history table for outbox).
 
 Optional one-shot (vault seed + compose + `mvn clean verify` + image builds): `.\scripts\validate-clean-checkout.ps1` / `./scripts/validate-clean-checkout.sh`.
 
@@ -353,7 +353,7 @@ Optional one-shot (vault seed + compose + `mvn clean verify` + image builds): `.
 mvn clean install -DskipTests
 ```
 
-Or full tests + JaCoCo gate (â‰¥95% LINE and BRANCH):
+Or full tests + JaCoCo gate (≥95% LINE and BRANCH):
 
 ```bash
 mvn clean verify
@@ -392,18 +392,18 @@ export KAFKA_BOOTSTRAP_SERVERS=localhost:9092
 
 ### 5. Start apps (three terminals)
 
-**Do not** use `mvn -pl <module> -am spring-boot:run` from the repo root â€” `-am` pulls the parent POM into the reactor and fails with *Unable to find a suitable main class*.
+**Do not** use `mvn -pl <module> -am spring-boot:run` from the repo root — `-am` pulls the parent POM into the reactor and fails with *Unable to find a suitable main class*.
 
-After step 3, from the **repo root** (load `.env` + `.vault/approle.env` for ingest/analytics; client only needs `.env` / defaults â€” no Vault):
+After step 3, from the **repo root** (load `.env` + `.vault/approle.env` for ingest/analytics; client only needs `.env` / defaults — no Vault):
 
 ```bash
-# Terminal A â€” analytics-service :8080  (start first on a fresh DB)
+# Terminal A — analytics-service :8080  (start first on a fresh DB)
 mvn -pl analytics-service spring-boot:run
 
-# Terminal B â€” ingest-api :8081
+# Terminal B — ingest-api :8081
 mvn -pl ingest-api spring-boot:run
 
-# Terminal C â€” client :8084 (React hub + Stats; build already generated static/)
+# Terminal C — client :8084 (React hub + Stats; build already generated static/)
 mvn -pl client spring-boot:run
 ```
 
@@ -422,9 +422,9 @@ Wait until Tomcat is up on **8080**, **8081**, and **8084**. Topics `security-ev
 | Stats UI | http://localhost:8084/stats | 200 |
 | Ingest Swagger | http://localhost:8081/swagger-ui/index.html | 200 |
 | Kafka UI | http://localhost:8083/ | 200 |
-| Adminer | http://localhost:8082/ (or hub â†’ analytics `/adminer-go.html`) | 200; config JSON has **no** `password` |
+| Adminer | http://localhost:8082/ (or hub → analytics `/adminer-go.html`) | 200; config JSON has **no** `password` |
 
-Then post a sample event ([Try it](#try-it)) â€” ingest **201**, then summary `totalEvents` â‰¥ 1 after a few seconds (relay + consumer lag). Open Stats on `:8084/stats` to chart the same data.
+Then post a sample event ([Try it](#try-it)) — ingest **201**, then summary `totalEvents` ≥ 1 after a few seconds (relay + consumer lag). Open Stats on `:8084/stats` to chart the same data.
 
 ### Stop
 
@@ -537,7 +537,7 @@ Or open the Stats UI: http://localhost:8084/stats (summary tables + timeseries c
 
 ### Seed demo data
 
-With infra plus **ingest-api** and **analytics-service** running (client optional): mixed traffic through ingest â†’ Kafka â†’ analytics, rules from [`scripts/alert-rules.json`](scripts/alert-rules.json), then `POST /demo/alerts/fire` so assignment/smoke rules show **FIRING**.
+With infra plus **ingest-api** and **analytics-service** running (client optional): mixed traffic through ingest → Kafka → analytics, rules from [`scripts/alert-rules.json`](scripts/alert-rules.json), then `POST /demo/alerts/fire` so assignment/smoke rules show **FIRING**.
 
 ```powershell
 .\scripts\seed-demo-data.ps1
@@ -579,7 +579,7 @@ Kafka decouples outbox relay from scoring. Poison / exhausted-retry messages go 
 ### Monitoring lag
 
 - Outbox backlog: http://localhost:8081/actuator/metrics/ingest_outbox_pending
-- Consumer lag: Kafka UI http://localhost:8083/ â†’ analytics consumer group / `security-events.raw`
+- Consumer lag: Kafka UI http://localhost:8083/ → analytics consumer group / `security-events.raw`
 
 ## Threat score
 
@@ -592,13 +592,13 @@ Computed only in analytics `EnrichmentManager` (cap 100; current formula max is 
 | Path contains `/admin` or `/login` (case-insensitive) | +15 |
 | Same `clientIp` already has **more than 5** events in the last 10 minutes | +15 |
 
-**Attack type** (from `rule.category`): INJECTION â†’ SQL/Command Injection, XSS â†’ Cross-Site Scripting, PROTOCOL_VIOLATION â†’ Protocol Anomaly, DATA_LEAKAGE â†’ Data Exfiltration, BOT â†’ Bot Activity, DOS â†’ Denial of Service, RATE_LIMIT â†’ Rate Limiting.
+**Attack type** (from `rule.category`): INJECTION → SQL/Command Injection, XSS → Cross-Site Scripting, PROTOCOL_VIOLATION → Protocol Anomaly, DATA_LEAKAGE → Data Exfiltration, BOT → Bot Activity, DOS → Denial of Service, RATE_LIMIT → Rate Limiting.
 
 ## Testing and quality
 
 ### Tests
 
-Prefer **MockMvc API/E2E tests** (real Spring context + in-memory **H2** in PostgreSQL mode) for HTTP â†’ service â†’ persistence. Keep focused unit tests for:
+Prefer **MockMvc API/E2E tests** (real Spring context + in-memory **H2** in PostgreSQL mode) for HTTP → service → persistence. Keep focused unit tests for:
 
 - Scoring / classify (`EnrichmentManager`)
 - Enrichment idempotency (`EventEnrichmentService`)
@@ -608,7 +608,7 @@ Prefer **MockMvc API/E2E tests** (real Spring context + in-memory **H2** in Post
 
 Avoid duplicating the same scenario in both a thin controller unit test and an E2E test.
 
-**Cross-service event flow** (real Postgres + Kafka via Testcontainers) lives in module `e2e` as `EventFlowIT`: POST ingest â†’ outbox `PUBLISHED` â†’ Kafka â†’ analytics samples/summary (+ idempotent re-POST). It is **not** part of default `mvn verify` (keeps the JaCoCo gate Docker-free).
+**Cross-service event flow** (real Postgres + Kafka via Testcontainers) lives in module `e2e` as `EventFlowIT`: POST ingest → outbox `PUBLISHED` → Kafka → analytics samples/summary (+ idempotent re-POST). It is **not** part of default `mvn verify` (keeps the JaCoCo gate Docker-free).
 
 ```bash
 mvn -pl e2e -am verify -Pe2e
@@ -619,15 +619,15 @@ mvn -pl e2e -am verify -Pe2e
 | Requirement | Note |
 |---|---|
 | Docker | **Docker Desktop** (or compatible engine). Without Docker, `EventFlowIT` is skipped (`disabledWithoutDocker`). |
-| Windows | Leftover Docker Toolbox / `DOCKER_MACHINE_NAME` breaks Testcontainers â€” clear it (see [Prerequisites](#windows)) or use bootstrap. Failsafe pins `DOCKER_HOST=npipe:////./pipe/dockerDesktopLinuxEngine`. |
+| Windows | Leftover Docker Toolbox / `DOCKER_MACHINE_NAME` breaks Testcontainers — clear it (see [Prerequisites](#windows)) or use bootstrap. Failsafe pins `DOCKER_HOST=npipe:////./pipe/dockerDesktopLinuxEngine`. |
 | macOS / Linux | If needed: `DOCKER_HOST=unix:///var/run/docker.sock` (override the Windows pipe set in `e2e` Failsafe). |
-| Profile | Spring profile `e2e` â€” **never** `test` (analytics Kafka consumer is `@Profile("!test")`). |
+| Profile | Spring profile `e2e` — **never** `test` (analytics Kafka consumer is `@Profile("!test")`). |
 
 Boot runnable jars are packaged as `*-exec.jar` (thin main artifact stays dependency-friendly for the shared e2e classpath).
 
 ### JaCoCo + SonarQube (local)
 
-Free local tools only â€” no SonarCloud. Sonar needs several GB of Docker RAM.
+Free local tools only — no SonarCloud. Sonar needs several GB of Docker RAM.
 
 | Tool | Role | Gate |
 |---|---|---|
@@ -641,14 +641,14 @@ mvn verify
 
 # Optional Sonar profile
 docker compose --profile sonar up -d
-# http://localhost:9000 â€” first login admin/admin, set password, create a user token
+# http://localhost:9000 — first login admin/admin, set password, create a user token
 # Store it in Vault (and optional .vault/sonar_token for re-seed), not in .env:
 #   printf '%s' 'YOUR_TOKEN' > .vault/sonar_token
 #   .\scripts\vault-seed.ps1   # or ./scripts/vault-seed.sh
 ```
 
 ```powershell
-# Uses VAULT_DEV_ROOT_TOKEN_ID from .env (seed/dev only â€” not used by Spring apps)
+# Uses VAULT_DEV_ROOT_TOKEN_ID from .env (seed/dev only — not used by Spring apps)
 $token = if ($env:VAULT_DEV_ROOT_TOKEN_ID) { $env:VAULT_DEV_ROOT_TOKEN_ID } else { "wsa-dev-root" }
 $env:SONAR_TOKEN = (docker compose --env-file .env exec -T `
   -e VAULT_ADDR=http://127.0.0.1:8200 -e "VAULT_TOKEN=$token" `
@@ -657,7 +657,7 @@ mvn verify sonar:sonar "-Dsonar.token=$env:SONAR_TOKEN"
 ```
 
 ```bash
-# Uses VAULT_DEV_ROOT_TOKEN_ID from .env (seed/dev only â€” not used by Spring apps)
+# Uses VAULT_DEV_ROOT_TOKEN_ID from .env (seed/dev only — not used by Spring apps)
 token="${VAULT_DEV_ROOT_TOKEN_ID:-wsa-dev-root}"
 export SONAR_TOKEN="$(docker compose --env-file .env exec -T \
   -e VAULT_ADDR=http://127.0.0.1:8200 -e "VAULT_TOKEN=${token}" \
@@ -671,8 +671,8 @@ Refresh Sonar rows in [`QUALITY_REPORT.md`](QUALITY_REPORT.md) after a Sonar run
 
 | Tag | Meaning |
 |---|---|
-| `v0.1-ingestion` â€¦ `v0.9-platform` | Incremental milestones (ingest â†’ enrichment â†’ stats â†’ samples â†’ timeseries â†’ alerts â†’ rate limit â†’ generator â†’ docs/Docker) |
-| `v1.0-quality` | JaCoCo â‰¥95% gate + local SonarQube Community |
+| `v0.1-ingestion` … `v0.9-platform` | Incremental milestones (ingest → enrichment → stats → samples → timeseries → alerts → rate limit → generator → docs/Docker) |
+| `v1.0-quality` | JaCoCo ≥95% gate + local SonarQube Community |
 
 ## Future ideas
 
@@ -680,13 +680,13 @@ Refresh Sonar rows in [`QUALITY_REPORT.md`](QUALITY_REPORT.md) after a Sonar run
 
 - Object storage (e.g. S3) for long-term retention of older enriched events.
 - Client-visible ingest statuses (`accepted` / `progressing` / `done`) on top of the outbox.
-- Broader pipeline ITs: client proxy in the loop, DLQ path, multi-event backlog / lag assertions (beyond todayâ€™s `EventFlowIT` happy-path + idempotent re-POST).
+- Broader pipeline ITs: client proxy in the loop, DLQ path, multi-event backlog / lag assertions (beyond today’s `EventFlowIT` happy-path + idempotent re-POST).
 
 **AI (on top of the pipeline, not instead of classify/score)**
 
-Keep fixed category â†’ attack type and the threat formula (fast, cheap, testable). Optional additions:
+Keep fixed category → attack type and the threat formula (fast, cheap, testable). Optional additions:
 
-- Semantic search / â€œsimilar past eventsâ€ for analysts.
+- Semantic search / “similar past events” for analysts.
 - LLM plain-language explanations (do not replace `threatScore`).
 - Natural-language queries mapped to summary / samples / timeseries.
-- Optional â€œlooks unusualâ€ flag for odd free-text â€” never overwrite category or score.
+- Optional “looks unusual” flag for odd free-text — never overwrite category or score.
