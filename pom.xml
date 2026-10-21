@@ -22,6 +22,7 @@
         <module>contracts</module>
         <module>ingest-api</module>
         <module>analytics-service</module>
+        <module>client</module>
         <module>generator</module>
         <module>coverage</module>
         <module>e2e</module>
@@ -47,7 +48,7 @@
         <sonar.java.coveragePlugin>jacoco</sonar.java.coveragePlugin>
         <!--
           Scope analysis to hand-written trees only. OpenAPI / MapStruct output lives under
-          target/generated-sources and is therefore not scanned — no per-package exclusion list.
+          target/generated-sources and is therefore not scanned â€” no per-package exclusion list.
         -->
         <sonar.sources>src/main/java</sonar.sources>
         <sonar.tests>src/test/java</sonar.tests>
@@ -55,6 +56,7 @@
             ${maven.multiModuleProjectDirectory}/contracts/target/site/jacoco/jacoco.xml,
             ${maven.multiModuleProjectDirectory}/ingest-api/target/site/jacoco/jacoco.xml,
             ${maven.multiModuleProjectDirectory}/analytics-service/target/site/jacoco/jacoco.xml,
+            ${maven.multiModuleProjectDirectory}/client/target/site/jacoco/jacoco.xml,
             ${maven.multiModuleProjectDirectory}/generator/target/site/jacoco/jacoco.xml,
             ${maven.multiModuleProjectDirectory}/coverage/target/site/jacoco-aggregate/jacoco.xml
         </sonar.coverage.jacoco.xmlReportPaths>
@@ -151,9 +153,10 @@
                             <exclude>**/GeneratorMain*</exclude>
                             <exclude>**/IngestClient*</exclude>
                             <exclude>**/ConsoleProgress*</exclude>
-                            <!-- JPA entities / enums — covered via repository + service paths -->
+                            <!-- JPA entities / enums â€” covered via repository + service paths -->
                             <exclude>com/wsa/ingest/entity/**</exclude>
                             <exclude>com/wsa/ingest/config/OutboxMetricsConfig*</exclude>
+                            <exclude>com/wsa/client/config/ClientProperties*</exclude>
                         </excludes>
                     </configuration>
                 </plugin>
