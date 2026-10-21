@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Fill Kafka + Postgres with the current Mini WSA demo dataset.
+  Fill Kafka + Postgres with the current WSA demo dataset.
 
 .DESCRIPTION
   Prerequisites: Docker Compose infra up, ingest-api (:8081) and analytics-service (:8080) running.
@@ -30,7 +30,7 @@ param(
 $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 if (-not (Test-Path (Join-Path $repoRoot "pom.xml"))) {
-    throw "Could not find Mini WSA repo root (parent pom.xml missing)."
+    throw "Could not find WSA repo root (parent pom.xml missing)."
 }
 Set-Location $repoRoot
 
@@ -86,7 +86,7 @@ if ($WaitSeconds -le 0) {
 if (-not $SkipGenerator) {
     Write-Step "Generating $EventCount mixed events at ~$Rate/s (ingest → Kafka)"
     Write-Host "  This can take several minutes at 10k+ volume." -ForegroundColor DarkGray
-    & (Join-Path $repoRoot "generator\generate.ps1") `
+    & (Join-Path $repoRoot "generator" "generate.ps1") `
         -BaseUrl $IngestUrl `
         -Count $EventCount `
         -Rate $Rate `
@@ -123,7 +123,7 @@ if (-not $SkipGenerator) {
 
 if (-not $SkipAlerts) {
     Write-Step "Creating example alert rules from demo/alert-rules.json"
-    $rulesPath = Join-Path $repoRoot "demo\alert-rules.json"
+    $rulesPath = Join-Path $repoRoot "demo" "alert-rules.json"
     if (-not (Test-Path $rulesPath)) {
         throw "Missing $rulesPath"
     }

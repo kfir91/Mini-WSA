@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: Mini WSA analytics-service
+  title: WSA analytics-service
   version: 0.1.0
   description: Query enriched security events, stats, timeseries, and persisted alerts.
 servers:
@@ -461,12 +461,12 @@ components:
           format: int64
           nullable: true
     ErrorCode:
-      $ref: '../../../../miniwsa-contracts/src/main/resources/open-api/api-errors.yaml#/components/schemas/ErrorCode'
+      $ref: '../../../../contracts/src/main/resources/open-api/api-errors.yaml#/components/schemas/ErrorCode'
     ErrorMessage:
-      $ref: '../../../../miniwsa-contracts/src/main/resources/open-api/api-errors.yaml#/components/schemas/ErrorMessage'
+      $ref: '../../../../contracts/src/main/resources/open-api/api-errors.yaml#/components/schemas/ErrorMessage'
     ErrorReason:
-      $ref: '../../../../miniwsa-contracts/src/main/resources/open-api/api-errors.yaml#/components/schemas/ErrorReason'
+      $ref: '../../../../contracts/src/main/resources/open-api/api-errors.yaml#/components/schemas/ErrorReason'
     ErrorDetail:
-      $ref: '../../../../miniwsa-contracts/src/main/resources/open-api/api-errors.yaml#/components/schemas/ErrorDetail'
+      $ref: '../../../../contracts/src/main/resources/open-api/api-errors.yaml#/components/schemas/ErrorDetail'
     ErrorResponse:
-      $ref: '../../../../miniwsa-contracts/src/main/resources/open-api/api-errors.yaml#/components/schemas/ErrorResponse'
+      $ref: '../../../../contracts/src/main/resources/open-api/api-errors.yaml#/components/schemas/ErrorResponse'

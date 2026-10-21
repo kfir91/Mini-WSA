@@ -11,19 +11,19 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.miniwsa</groupId>
-    <artifactId>miniwsa</artifactId>
+    <groupId>com.wsa</groupId>
+    <artifactId>wsa</artifactId>
     <version>0.1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
-    <name>Mini WSA</name>
+    <name>WSA</name>
     <description>Local security analytics pipeline</description>
 
     <modules>
-        <module>miniwsa-contracts</module>
+        <module>contracts</module>
         <module>ingest-api</module>
         <module>analytics-service</module>
         <module>generator</module>
-        <module>miniwsa-coverage</module>
+        <module>coverage</module>
     </modules>
 
     <properties>
@@ -39,8 +39,8 @@
         <jacoco.branch.minimum>0.95</jacoco.branch.minimum>
 
         <!-- Local SonarQube Community only (Docker :9000). No SonarCloud. -->
-        <sonar.projectKey>miniwsa</sonar.projectKey>
-        <sonar.projectName>Mini WSA</sonar.projectName>
+        <sonar.projectKey>wsa</sonar.projectKey>
+        <sonar.projectName>WSA</sonar.projectName>
         <sonar.host.url>http://localhost:9000</sonar.host.url>
         <sonar.java.coveragePlugin>jacoco</sonar.java.coveragePlugin>
         <!--
@@ -50,11 +50,11 @@
         <sonar.sources>src/main/java</sonar.sources>
         <sonar.tests>src/test/java</sonar.tests>
         <sonar.coverage.jacoco.xmlReportPaths>
-            ${maven.multiModuleProjectDirectory}/miniwsa-contracts/target/site/jacoco/jacoco.xml,
+            ${maven.multiModuleProjectDirectory}/contracts/target/site/jacoco/jacoco.xml,
             ${maven.multiModuleProjectDirectory}/ingest-api/target/site/jacoco/jacoco.xml,
             ${maven.multiModuleProjectDirectory}/analytics-service/target/site/jacoco/jacoco.xml,
             ${maven.multiModuleProjectDirectory}/generator/target/site/jacoco/jacoco.xml,
-            ${maven.multiModuleProjectDirectory}/miniwsa-coverage/target/site/jacoco-aggregate/jacoco.xml
+            ${maven.multiModuleProjectDirectory}/coverage/target/site/jacoco-aggregate/jacoco.xml
         </sonar.coverage.jacoco.xmlReportPaths>
         <!-- Align Sonar coverage % with JaCoCo for a few hand-written types we also skip there. -->
         <sonar.coverage.exclusions>
@@ -131,9 +131,9 @@
                     <configuration>
                         <excludes>
                             <!-- OpenAPI-generated contracts + analytics API models/interfaces -->
-                            <exclude>com/miniwsa/contracts/**</exclude>
-                            <exclude>com/miniwsa/analytics/api/**</exclude>
-                            <exclude>com/miniwsa/ingest/api/Error*</exclude>
+                            <exclude>com/wsa/contracts/**</exclude>
+                            <exclude>com/wsa/analytics/api/**</exclude>
+                            <exclude>com/wsa/ingest/api/Error*</exclude>
                             <exclude>**/*Application*</exclude>
                             <exclude>**/*MapperImpl*</exclude>
                             <!-- Spring Kafka wiring + Postgres-only SQL + generator CLI I/O -->

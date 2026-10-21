@@ -11,7 +11,7 @@ param(
 $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 if (-not (Test-Path (Join-Path $repoRoot "pom.xml"))) {
-    throw "Run this script from the Mini WSA repo (could not find parent pom.xml)."
+    throw "Run this script from the WSA repo (could not find parent pom.xml)."
 }
 Set-Location $repoRoot
 
@@ -22,7 +22,7 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 Write-Host "Starting generator..." -ForegroundColor Cyan
-mvn -q -pl generator -DskipTests org.codehaus.mojo:exec-maven-plugin:3.5.0:java "-Dexec.mainClass=com.miniwsa.generator.GeneratorMain" "-Dexec.args=$argsLine"
+mvn -q -pl generator -DskipTests org.codehaus.mojo:exec-maven-plugin:3.5.0:java "-Dexec.mainClass=com.wsa.generator.GeneratorMain" "-Dexec.args=$argsLine"
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }

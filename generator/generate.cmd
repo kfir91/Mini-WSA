@@ -19,5 +19,5 @@ echo Building generator modules (quiet)...
 call mvn -q -pl generator -am -DskipTests install
 if errorlevel 1 exit /b %ERRORLEVEL%
 echo Starting generator...
-call mvn -q -pl generator -DskipTests org.codehaus.mojo:exec-maven-plugin:3.5.0:java "-Dexec.mainClass=com.miniwsa.generator.GeneratorMain" "-Dexec.args=--base-url %BASE_URL% --count %COUNT% --rate %RATE% --wave %WAVE% --config-id %CONFIG_ID% --burst-size %BURST_SIZE%"
+call mvn -q -pl generator -DskipTests org.codehaus.mojo:exec-maven-plugin:3.5.0:java "-Dexec.mainClass=com.wsa.generator.GeneratorMain" "-Dexec.args=--base-url %BASE_URL% --count %COUNT% --rate %RATE% --wave %WAVE% --config-id %CONFIG_ID% --burst-size %BURST_SIZE%"
 exit /b %ERRORLEVEL%

@@ -1,0 +1,127 @@
+openapi: 3.0.3
+info:
+  title: WSA security event wire contract
+  version: 0.1.0
+  description: Shared wire shape for HTTP ingest and Kafka payloads. No scoring or persistence fields.
+paths: {}
+components:
+  schemas:
+    AttackCategory:
+      type: string
+      enum: [INJECTION, XSS, PROTOCOL_VIOLATION, DATA_LEAKAGE, BOT, DOS, RATE_LIMIT]
+    Severity:
+      type: string
+      enum: [CRITICAL, HIGH, MEDIUM, LOW]
+    Action:
+      type: string
+      enum: [DENY, ALERT, MONITOR]
+    GeoLocationMessage:
+      type: object
+      required: [country, city]
+      properties:
+        country:
+          type: string
+          minLength: 1
+          example: CN
+        city:
+          type: string
+          minLength: 1
+          example: Beijing
+    RuleMessage:
+      type: object
+      required: [id, name, message, severity, category]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          example: "950001"
+        name:
+          type: string
+          minLength: 1
+          example: SQL_INJECTION
+        message:
+          type: string
+          minLength: 1
+          example: SQL Injection Attack Detected
+        severity:
+          $ref: '#/components/schemas/Severity'
+        category:
+          $ref: '#/components/schemas/AttackCategory'
+    SecurityEventMessage:
+      type: object
+      required:
+        - eventId
+        - timestamp
+        - configId
+        - policyId
+        - clientIp
+        - hostname
+        - path
+        - method
+        - statusCode
+        - userAgent
+        - rule
+        - action
+        - geoLocation
+        - requestSize
+        - responseSize
+      properties:
+        eventId:
+          type: string
+          minLength: 1
+          example: evt-00132
+        timestamp:
+          type: string
+          format: date-time
+          example: 2026-05-20T14:32:10Z
+        receivedAt:
+          type: string
+          format: date-time
+          description: Set by ingest-api; optional on client input
+          nullable: true
+        configId:
+          type: integer
+          format: int64
+          example: 14227
+        policyId:
+          type: string
+          minLength: 1
+          example: pol_web1
+        clientIp:
+          type: string
+          minLength: 1
+          example: 203.0.113.42
+        hostname:
+          type: string
+          minLength: 1
+          example: www.example.com
+        path:
+          type: string
+          minLength: 1
+          example: /api/v1/login
+        method:
+          type: string
+          minLength: 1
+          example: POST
+        statusCode:
+          type: integer
+          format: int32
+          example: 403
+        userAgent:
+          type: string
+          minLength: 1
+        rule:
+          $ref: '#/components/schemas/RuleMessage'
+        action:
+          $ref: '#/components/schemas/Action'
+        geoLocation:
+          $ref: '#/components/schemas/GeoLocationMessage'
+        requestSize:
+          type: integer
+          format: int32
+          example: 1024
+        responseSize:
+          type: integer
+          format: int32
+          example: 256
+

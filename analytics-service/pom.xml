@@ -5,8 +5,8 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.miniwsa</groupId>
-        <artifactId>miniwsa</artifactId>
+        <groupId>com.wsa</groupId>
+        <artifactId>wsa</artifactId>
         <version>0.1.0-SNAPSHOT</version>
     </parent>
 
@@ -15,8 +15,8 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.miniwsa</groupId>
-            <artifactId>miniwsa-contracts</artifactId>
+            <groupId>com.wsa</groupId>
+            <artifactId>contracts</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
@@ -96,8 +96,8 @@
                         <configuration>
                             <inputSpec>${project.basedir}/src/main/resources/open-api/analytics-api.yaml</inputSpec>
                             <generatorName>spring</generatorName>
-                            <apiPackage>com.miniwsa.analytics.api</apiPackage>
-                            <modelPackage>com.miniwsa.analytics.api</modelPackage>
+                            <apiPackage>com.wsa.analytics.api</apiPackage>
+                            <modelPackage>com.wsa.analytics.api</modelPackage>
                             <generateSupportingFiles>false</generateSupportingFiles>
                             <generateModelTests>false</generateModelTests>
                             <generateApiTests>false</generateApiTests>
@@ -111,11 +111,11 @@
                                 <importMapping>java.time.OffsetDateTime=java.time.Instant</importMapping>
                             </importMappings>
                             <schemaMappings>
-                                <schemaMapping>ErrorCode=com.miniwsa.contracts.ErrorCode</schemaMapping>
-                                <schemaMapping>ErrorMessage=com.miniwsa.contracts.ErrorMessage</schemaMapping>
-                                <schemaMapping>ErrorReason=com.miniwsa.contracts.ErrorReason</schemaMapping>
-                                <schemaMapping>ErrorDetail=com.miniwsa.contracts.ErrorDetail</schemaMapping>
-                                <schemaMapping>ErrorResponse=com.miniwsa.contracts.ErrorResponse</schemaMapping>
+                                <schemaMapping>ErrorCode=com.wsa.contracts.ErrorCode</schemaMapping>
+                                <schemaMapping>ErrorMessage=com.wsa.contracts.ErrorMessage</schemaMapping>
+                                <schemaMapping>ErrorReason=com.wsa.contracts.ErrorReason</schemaMapping>
+                                <schemaMapping>ErrorDetail=com.wsa.contracts.ErrorDetail</schemaMapping>
+                                <schemaMapping>ErrorResponse=com.wsa.contracts.ErrorResponse</schemaMapping>
                             </schemaMappings>
                             <configOptions>
                                 <dateLibrary>java8</dateLibrary>

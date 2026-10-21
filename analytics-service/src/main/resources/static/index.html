@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Mini WSA — local hub</title>
+  <title>WSA — local hub</title>
   <style>
     :root {
       --bg: #0f1419;
@@ -639,11 +639,12 @@
               <a href="http://localhost:8081/open-api/ingest-api.yaml">ingest-api.yaml</a>
               <a href="http://localhost:8080/open-api/analytics-api.yaml">analytics-api.yaml</a>
             </div>
-            <p>Shared contract: <code>miniwsa-contracts/.../security-event.yaml</code></p>
+            <p>Shared contract: <code>contracts/.../security-event.yaml</code></p>
           </article>
           <article class="tile">
             <h3>Generator (CLI)</h3>
             <p>From repo root:</p>
+            <code>./generator/generate.sh --count 20 --rate 5 --wave sql</code>
             <code>.\generator\generate.ps1 -Count 20 -Rate 5 -Wave sql</code>
           </article>
         </div>

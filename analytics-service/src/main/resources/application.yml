@@ -5,8 +5,8 @@ spring:
   application:
     name: analytics-service
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/miniwsa}
-    username: ${SPRING_DATASOURCE_USERNAME:miniwsa}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/wsa}
+    username: ${SPRING_DATASOURCE_USERNAME:wsa}
     password: ${SPRING_DATASOURCE_PASSWORD}
   jpa:
     hibernate:
@@ -17,18 +17,18 @@ spring:
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
-      group-id: ${KAFKA_CONSUMER_GROUP:miniwsa-analytics}
+      group-id: ${KAFKA_CONSUMER_GROUP:wsa-analytics}
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
-        spring.json.trusted.packages: com.miniwsa.contracts
-        spring.json.value.default.type: com.miniwsa.contracts.SecurityEventMessage
+        spring.json.trusted.packages: com.wsa.contracts
+        spring.json.value.default.type: com.wsa.contracts.SecurityEventMessage
         spring.json.use.type.headers: false
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
 
-miniwsa:
+wsa:
   kafka:
     topic-raw: ${KAFKA_TOPIC_RAW:security-events.raw}
     topic-dlq: ${KAFKA_TOPIC_DLQ:security-events.dlq}
@@ -43,7 +43,7 @@ miniwsa:
     url: ${ADMINER_URL:http://localhost:8082/}
     # Hostname Adminer uses inside Docker/SSH (Compose service/container DNS).
     # Required when JVM JDBC host is 127.0.0.1 via a published port / tunnel.
-    server: ${ADMINER_DEFAULT_SERVER:miniwsa-postgres}
+    server: ${ADMINER_DEFAULT_SERVER:wsa-postgres}
     # Empty → database name parsed from spring.datasource.url
     database: ${ADMINER_DB:}
 

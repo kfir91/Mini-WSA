@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: Mini WSA ingest-api
+  title: WSA ingest-api
   version: 0.1.0
   description: Ingest security events and publish them to Kafka. HTTP 201 means Kafka ack, not Postgres write.
 servers:
@@ -185,12 +185,12 @@ components:
           type: integer
           format: int32
     ErrorCode:
-      $ref: '../../../../miniwsa-contracts/src/main/resources/open-api/api-errors.yaml#/components/schemas/ErrorCode'
+      $ref: '../../../../contracts/src/main/resources/open-api/api-errors.yaml#/components/schemas/ErrorCode'
     ErrorMessage:
-      $ref: '../../../../miniwsa-contracts/src/main/resources/open-api/api-errors.yaml#/components/schemas/ErrorMessage'
+      $ref: '../../../../contracts/src/main/resources/open-api/api-errors.yaml#/components/schemas/ErrorMessage'
     ErrorReason:
-      $ref: '../../../../miniwsa-contracts/src/main/resources/open-api/api-errors.yaml#/components/schemas/ErrorReason'
+      $ref: '../../../../contracts/src/main/resources/open-api/api-errors.yaml#/components/schemas/ErrorReason'
     ErrorDetail:
-      $ref: '../../../../miniwsa-contracts/src/main/resources/open-api/api-errors.yaml#/components/schemas/ErrorDetail'
+      $ref: '../../../../contracts/src/main/resources/open-api/api-errors.yaml#/components/schemas/ErrorDetail'
     ErrorResponse:
-      $ref: '../../../../miniwsa-contracts/src/main/resources/open-api/api-errors.yaml#/components/schemas/ErrorResponse'
+      $ref: '../../../../contracts/src/main/resources/open-api/api-errors.yaml#/components/schemas/ErrorResponse'

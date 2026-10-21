@@ -13,7 +13,7 @@ spring:
         spring.json.add.type.headers: false
       acks: all
 
-miniwsa:
+wsa:
   kafka:
     topic-raw: ${KAFKA_TOPIC_RAW:security-events.raw}
     publish-timeout-seconds: ${KAFKA_PUBLISH_TIMEOUT_SECONDS:10}

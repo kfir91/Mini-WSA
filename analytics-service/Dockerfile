@@ -1,10 +1,11 @@
 FROM maven:3.9.9-eclipse-temurin-17 AS build
 WORKDIR /workspace
 COPY pom.xml .
-COPY miniwsa-contracts miniwsa-contracts
+COPY contracts contracts
 COPY analytics-service analytics-service
 COPY ingest-api/pom.xml ingest-api/pom.xml
 COPY generator/pom.xml generator/pom.xml
+COPY coverage/pom.xml coverage/pom.xml
 RUN mvn -pl analytics-service -am -DskipTests package
 
 FROM eclipse-temurin:17-jre
