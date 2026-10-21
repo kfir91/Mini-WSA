@@ -3,7 +3,7 @@
   Validate that a clean WSA checkout can compose up, pass mvn verify, and build app images.
 
 .DESCRIPTION
-  Fails fast on the first error. Does not start the Spring apps (print the documented -am commands).
+  Fails fast on the first error. Does not start the Spring apps (prints the documented spring-boot:run commands).
 
 .EXAMPLE
   .\scripts\validate-clean-checkout.ps1
@@ -87,7 +87,7 @@ if (-not $SkipDockerBuilds) {
 
 Write-Host ""
 Write-Host "OK - clean-checkout checks passed." -ForegroundColor Green
-Write-Host "Start apps (two terminals) with:"
-Write-Host "  mvn -pl ingest-api -am spring-boot:run"
-Write-Host "  mvn -pl analytics-service -am spring-boot:run"
-Write-Host "Load .env into the shell first (see README Run locally)."
+Write-Host "Start apps (two terminals; load .env first — see README):"
+Write-Host "  mvn -pl ingest-api spring-boot:run"
+Write-Host "  mvn -pl analytics-service spring-boot:run"
+Write-Host "Do NOT use -am with spring-boot:run (parent POM has no main class)."

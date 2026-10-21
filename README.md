@@ -104,23 +104,134 @@ Open [`index.html`](index.html) in a browser (double-click from the repo root). 
 
 Adminer: hub **Connect (from config)** → `http://localhost:8080/adminer-go.html`. Static JS loads `GET /adminer-go/config` (user/password/db from `SPRING_DATASOURCE_*`, server from `ADMINER_DEFAULT_SERVER`, default `wsa-postgres`) and POSTs into `:8082`. Do not open `http://localhost:8082/?pgsql=postgres&…`.
 
+## Prerequisites (install once)
+
+| Tool | Version | Why |
+|---|---|---|
+| **JDK** | 17+ | Compile and run Spring Boot apps |
+| **Maven** | 3.8+ | Build, tests, `spring-boot:run` |
+| **Docker** | Desktop (Win/Mac), or OrbStack/Colima (Mac) | Postgres, Kafka, Adminer, Kafka UI |
+| **Git** | any recent | Clone / sync |
+| **Python 3** | optional | Only for [`scripts/demo-firing-alerts.py`](scripts/demo-firing-alerts.py) fallback |
+
+### Windows — install commands
+
+1. **JDK 17** (Temurin example via winget):
+
+```powershell
+winget install EclipseAdoptium.Temurin.17.JDK
+# then open a new terminal and confirm:
+java -version
+```
+
+2. **Maven 3.8+**:
+
+```powershell
+winget install Apache.Maven
+# new terminal:
+mvn -version
+```
+
+Or download from https://maven.apache.org/download.cgi and add `bin` to `PATH`.
+
+3. **Docker Desktop** (uses WSL2 on Windows 10/11 Home/Pro):
+
+```powershell
+winget install Docker.DockerDesktop
+```
+
+Then reboot if prompted, start **Docker Desktop**, wait until it says running, and confirm:
+
+```powershell
+docker version
+docker compose version
+```
+
+If Docker reports *hypervisor is not running*:
+
+- Task Manager → Performance → CPU → **Virtualization: Enabled** (firmware). If Disabled, enable VT-x/AMD-V in BIOS/UEFI.
+- In **Administrator** PowerShell: `bcdedit /enum "{current}"` — if `hypervisorlaunchtype` is `Off`, set `bcdedit /set hypervisorlaunchtype Auto` and **restart Windows**.
+- Enable features if needed (Admin PowerShell), then reboot:
+
+```powershell
+Enable-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform -All -NoRestart
+Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux -All -NoRestart
+Enable-WindowsOptionalFeature -Online -FeatureName HypervisorPlatform -All -NoRestart
+```
+
+- Clear stale docker-machine env (points at dead `192.168.99.100`):
+
+```powershell
+[Environment]::SetEnvironmentVariable("DOCKER_HOST", $null, "User")
+[Environment]::SetEnvironmentVariable("DOCKER_TLS_VERIFY", $null, "User")
+[Environment]::SetEnvironmentVariable("DOCKER_CERT_PATH", $null, "User")
+Remove-Item Env:DOCKER_HOST,Env:DOCKER_TLS_VERIFY,Env:DOCKER_CERT_PATH -ErrorAction SilentlyContinue
+```
+
+4. **Optional — WSL distro** (helps some Docker Desktop installs):
+
+```powershell
+wsl --install -d Ubuntu
+# reboot if Windows asks, then:
+wsl -l -v
+```
+
+### macOS — install commands
+
+```bash
+# Homebrew: https://brew.sh
+brew install --cask temurin@17
+brew install maven
+brew install --cask docker   # or: brew install --cask orbstack
+java -version
+mvn -version
+docker version
+```
+
+Give Docker Desktop / OrbStack enough RAM (Sonar optional profile needs several GB).
+
+### Working directory tip (important on Windows)
+
+Work from a path that is **ASCII-only** when possible. Non-ASCII folders (e.g. Hebrew) often break OpenAPI codegen under Maven.
+
+```powershell
+# Example: copy repo to ASCII path once, then always work from there
+robocopy "C:\Users\...\Desktop\...\Mini WSA" C:\Temp\wsa-build /MIR /XD target .git
+cd C:\Temp\wsa-build
+```
+
+On macOS, UTF-8 paths are usually fine; still quote paths with spaces (`"Mini WSA"`).
+
+---
+
 ## Run locally (Windows and macOS)
 
-**Prerequisites:** JDK 17, Maven 3.8+, Docker (Desktop, OrbStack, or Colima), optional Python 3 for the Postgres firing fallback script.
+Do these steps **in order** from the repo root (or `C:\Temp\wsa-build` / `/tmp/wsa-build`).
 
-1. Copy [`.env.example`](.env.example) to `.env`. Set `POSTGRES_PASSWORD` / `SPRING_DATASOURCE_PASSWORD`. Leave `SONAR_TOKEN` empty until you create a local Sonar token (never commit a real token).
+### 1. Create `.env`
+
+Copy [`.env.example`](.env.example) to `.env`. Set `POSTGRES_PASSWORD` and `SPRING_DATASOURCE_PASSWORD` to the same value. Leave `SONAR_TOKEN` empty until you create a local Sonar token (never commit a real token).
 
 ```bash
 cp .env.example .env
 ```
 
-2. Start infrastructure from the repo root (Postgres, Kafka via `apache/kafka:3.8.1`, Adminer, Kafka UI — **not** Sonar):
+```powershell
+Copy-Item .env.example .env
+```
+
+### 2. Start infrastructure (Compose)
+
+Starts Postgres `:5432`, Kafka (`apache/kafka:3.8.1`) `:9092`, Adminer `:8082`, Kafka UI `:8083` — **not** Sonar.
 
 ```bash
 docker compose --env-file .env up -d
+docker compose --env-file .env ps
 ```
 
-One-shot check of compose + `mvn clean verify` + both Docker image builds:
+Wait until **postgres** and **kafka** show `healthy` (first pull can take several minutes).
+
+Optional one-shot: compose + `mvn clean verify` + image builds:
 
 ```powershell
 # Windows
@@ -133,24 +244,32 @@ chmod +x scripts/*.sh generator/*.sh
 ./scripts/validate-clean-checkout.sh
 ```
 
-3. Build and test (JaCoCo coverage gate ≥95% LINE and BRANCH):
+### 3. Build the Java modules
+
+Install jars into `~/.m2` (required before `spring-boot:run` can resolve `contracts`):
+
+```bash
+mvn clean install -DskipTests
+```
+
+Or run the full test + JaCoCo gate (≥95% LINE and BRANCH):
 
 ```bash
 mvn clean verify
 ```
 
-HTML reports:
+HTML reports after `verify`:
 
 - Aggregate: `coverage/target/site/jacoco-aggregate/index.html`
 - Per module: `<module>/target/site/jacoco/index.html`
 - Last published numbers: [`QUALITY_REPORT.md`](QUALITY_REPORT.md)
 
-**Paths:** Quote directories with spaces (e.g. `"Mini WSA"`). If Maven/OpenAPI hits path encoding issues under a non-ASCII folder (seen mainly on Windows with Hebrew paths), copy the tree to an ASCII path (`C:\Temp\wsa-build` or `/tmp/wsa-build`) and run **verify and spring-boot:run** from there.
+### 4. Load `.env` into the shell (each app terminal)
 
-4. Start the services (two terminals). Use `-am` so Maven also builds reactor dependency `contracts` (a plain `-pl` after `verify` alone does **not** install that jar into `~/.m2`). Load env vars the JVM can see:
+Spring Boot reads `SPRING_DATASOURCE_*` and `KAFKA_BOOTSTRAP_SERVERS` from the **process environment**. Loading `.env` once per terminal is required.
 
 ```powershell
-# Windows PowerShell
+# Windows PowerShell (run in each terminal before spring-boot:run)
 Get-Content .env | ForEach-Object {
   if ($_ -match '^\s*#' -or $_ -notmatch '=') { return }
   $k, $v = $_ -split '=', 2
@@ -160,23 +279,55 @@ $env:KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"
 ```
 
 ```bash
-# macOS / Linux
+# macOS / Linux (run in each terminal before spring-boot:run)
 set -a
 source .env
 set +a
 export KAFKA_BOOTSTRAP_SERVERS=localhost:9092
 ```
 
-Then (both OS):
+### 5. Start the two apps (two terminals)
+
+**Do not** use `mvn -pl <module> -am spring-boot:run` from the repo root — `-am` pulls the parent POM into the reactor and `spring-boot:run` fails with *Unable to find a suitable main class*.
+
+After step 3 (`install` or `verify`), from the **repo root**, in two separate terminals (each with `.env` loaded):
 
 ```bash
-mvn -pl ingest-api -am spring-boot:run
-mvn -pl analytics-service -am spring-boot:run
+# Terminal A — ingest-api :8081
+mvn -pl ingest-api spring-boot:run
+
+# Terminal B — analytics-service :8080
+mvn -pl analytics-service spring-boot:run
 ```
 
-Alternative after a one-time `mvn install -DskipTests`: `mvn -pl ingest-api spring-boot:run` (and the same for analytics) without `-am`.
+Equivalent (also fine):
 
-Kafka topics `security-events.raw` and `security-events.dlq` are created on first produce/consume (auto-create is enabled). Names come from `KAFKA_TOPIC_RAW` / `KAFKA_TOPIC_DLQ`.
+```bash
+cd ingest-api && mvn spring-boot:run
+cd analytics-service && mvn spring-boot:run
+```
+
+Wait until logs show Tomcat started on **8081** and **8080**. Kafka topics `security-events.raw` / `security-events.dlq` are auto-created on first produce/consume (`KAFKA_TOPIC_RAW` / `KAFKA_TOPIC_DLQ`).
+
+### 6. Smoke-check
+
+| Check | URL / command | Expect |
+|---|---|---|
+| Ingest health | http://localhost:8081/actuator/health | `"status":"UP"` |
+| Analytics health | http://localhost:8080/actuator/health | `"status":"UP"` |
+| Hub | http://localhost:8080/ | 200 |
+| Ingest Swagger | http://localhost:8081/swagger-ui/index.html | 200 |
+| Kafka UI | http://localhost:8083/ | 200 |
+| Adminer | http://localhost:8082/ | 200 |
+
+Then post a sample event (see [Try it](#try-it)) — ingest **201**, then summary `totalEvents` ≥ 1 after a few seconds.
+
+### Stop
+
+```bash
+# Ctrl+C in both app terminals, then:
+docker compose --env-file .env down
+```
 
 ### Testing strategy
 

@@ -80,7 +80,7 @@ fi
 
 echo ""
 echo "OK - clean-checkout checks passed."
-echo "Start apps (two terminals) with:"
-echo "  mvn -pl ingest-api -am spring-boot:run"
-echo "  mvn -pl analytics-service -am spring-boot:run"
-echo "Load .env into the shell first (see README Run locally)."
+echo "Start apps (two terminals; load .env first — see README):"
+echo "  mvn -pl ingest-api spring-boot:run"
+echo "  mvn -pl analytics-service spring-boot:run"
+echo "Do NOT use -am with spring-boot:run (parent POM has no main class)."
