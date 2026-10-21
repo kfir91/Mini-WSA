@@ -7,6 +7,7 @@ import com.wsa.contracts.ErrorMessage;
 import com.wsa.contracts.ErrorReason;
 import com.wsa.contracts.ErrorResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -39,6 +40,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(EventPublishException.class)
     public ResponseEntity<ErrorResponse> handlePublish(EventPublishException ex) {
         log.error("Kafka publish failed");
+        return ResponseEntity.status(ApiException.brokerUnavailable().getHttpStatus())
+                .body(ApiException.brokerUnavailable().toResponse());
+    }
+
+    @ExceptionHandler(DataAccessException.class)
+    public ResponseEntity<ErrorResponse> handleDataAccess(DataAccessException ex) {
+        log.error("Persistence unavailable for ingest accept");
         return ResponseEntity.status(ApiException.brokerUnavailable().getHttpStatus())
                 .body(ApiException.brokerUnavailable().toResponse());
     }

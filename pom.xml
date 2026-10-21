@@ -142,6 +142,9 @@
                             <exclude>**/GeneratorMain*</exclude>
                             <exclude>**/IngestClient*</exclude>
                             <exclude>**/ConsoleProgress*</exclude>
+                            <!-- JPA entities / enums — covered via repository + service paths -->
+                            <exclude>com/wsa/ingest/entity/**</exclude>
+                            <exclude>com/wsa/ingest/config/OutboxMetricsConfig*</exclude>
                         </excludes>
                     </configuration>
                 </plugin>

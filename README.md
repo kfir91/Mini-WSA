@@ -1,6 +1,6 @@
 # WSA
 
-WSA is a local security analytics pipeline. Clients (or the included generator) post WAF-style DLR events to **ingest-api**. Ingest validates the payload, stamps `receivedAt`, and publishes to Kafka. **analytics-service** consumes that topic, classifies the attack, scores threat, persists to PostgreSQL, and exposes query APIs.
+WSA is a local security analytics pipeline. Clients (or the included generator) post WAF-style DLR events to **ingest-api**. Ingest validates the payload, stamps `receivedAt`, commits to a transactional outbox, and returns HTTP 201; a relay then publishes to Kafka. **analytics-service** consumes that topic, classifies the attack, scores threat, persists to PostgreSQL, and exposes query APIs.
 
 Java 17+, Maven 3.8+, Docker (Desktop on Windows/macOS, or OrbStack/Colima on macOS), and a free local stack (PostgreSQL 16 + Kafka KRaft). No cloud databases. Runs on **Windows and macOS**.
 
@@ -14,11 +14,12 @@ Java 17+, Maven 3.8+, Docker (Desktop on Windows/macOS, or OrbStack/Colima on ma
               |  POST /v1/events/ingest
               v
         ingest-api :8081
-        (validate → stamp receivedAt → Kafka produce)
-              |  HTTP 201 = broker ack (not Postgres write)
+        (validate → stamp receivedAt → outbox TX)
+              |  HTTP 201 = durable outbox accept
+              |  relay (async) → Kafka produce
               v
    security-events.raw  ----------->  analytics-service :8080
-   security-events.dlq  <-----------  (poison / exhausted retries)
+   security-events.dlq  <-----------  (poison / exhausted retries; sync DLQ wait)
               |                         |
               |                         |  consume → classify/score → Postgres
               |                         v
@@ -39,14 +40,14 @@ Java 17+, Maven 3.8+, Docker (Desktop on Windows/macOS, or OrbStack/Colima on ma
 | Module | Port | Owns | Does not own |
 |---|---|---|---|
 | `contracts` | — | Wire models/enums from OpenAPI (`SecurityEventMessage`, severity/action/category) | Scoring, JPA, Spring, REST query DTOs |
-| `ingest-api` | 8081 | Validate + stamp `receivedAt` + Kafka produce; error schemas | Database, classify/score, alerts |
+| `ingest-api` | 8081 | Validate + stamp `receivedAt` + durable outbox + Kafka relay; error schemas | Enrichment DB, classify/score, alerts |
 | `analytics-service` | 8080 | Kafka consume, domain enrich, Postgres, read APIs, persisted alerts, rate limit on stats/samples | Ingest HTTP, shared REST types with ingest |
 | `generator` | — | CLI synthetic waves using contracts jar | Persistence, OpenAPI codegen |
 | `coverage` | — | Aggregated JaCoCo HTML/XML report after `mvn verify` | Application code |
 
 ### Layers inside each Spring app
 
-**ingest-api:** `api` (OpenAPI) → `controller` → `service` → Kafka `client`. No `domain/`, no `entity/`, no repository.
+**ingest-api:** `api` (OpenAPI) → `controller` → `service` → `entity`/`repository` (outbox only) + Kafka `client` (relay). No `domain/`; no enrichment schema.
 
 **analytics-service:** `api` → `controller` → `service` → `manager`/`domain` → `repository`/`entity`. MapStruct `mapper` sits between contract/api and entity. Messaging consumer/producer are adapters only.
 
@@ -68,7 +69,8 @@ contracts/
 ingest-api/
   open-api/ingest-api.yaml
   com.wsa.ingest.api/             # generated Error* + hand-written EventsApi (oneOf body)
-  controller / service / client / exception / config
+  controller / service / entity / repository / client / exception / config
+  db/migration/                   # Flyway: ingest_outbox only
 
 analytics-service/
   open-api/analytics-api.yaml
@@ -104,6 +106,41 @@ Open [`index.html`](index.html) in a browser (double-click from the repo root). 
 
 Adminer: hub **Connect (from config)** → `http://localhost:8080/adminer-go.html`. Static JS loads `GET /adminer-go/config` (user/password/db from `SPRING_DATASOURCE_*`, server from `ADMINER_DEFAULT_SERVER`, default `wsa-postgres`) and POSTs into `:8082`. Do not open `http://localhost:8082/?pgsql=postgres&…`.
 
+## One-command bootstrap (recommended)
+
+From the repo root, these scripts install missing tools (when possible), start Compose, build, run both apps, and smoke-test until the stack answers on localhost.
+
+```powershell
+# Windows (PowerShell)
+.\scripts\bootstrap-windows.ps1
+```
+
+```bash
+# macOS
+chmod +x scripts/*.sh generator/*.sh
+./scripts/bootstrap-macos.sh
+```
+
+Useful flags:
+
+| Windows | macOS | Meaning |
+|---|---|---|
+| `-SkipInstall` | `--skip-install` | Do not winget/brew install (tools already present) |
+| `-FullVerify` | `--full-verify` | `mvn clean verify` (JaCoCo ≥95%) instead of `install -DskipTests` |
+| `-SkipApps` | `--skip-apps` | Build + infra only (do not start Spring apps) |
+| `-SkipCompose` | `--skip-compose` | Skip `docker compose up` |
+
+**Notes**
+
+- First Docker Desktop install may require a **Windows reboot** (hypervisor/WSL). Re-run with `-SkipInstall` after Docker says running.
+- On Windows, if the checkout path is non-ASCII (e.g. Hebrew), the script syncs to `C:\Temp\wsa-build` for Maven/Compose. **Git stays in the original folder** (`Mini WSA`).
+- App logs: `target/bootstrap-ingest.log` and `target/bootstrap-analytics.log`.
+- Optional demo volume after bootstrap: `.\scripts\seed-demo-data.ps1` / `./scripts/seed-demo-data.sh`.
+
+Manual step-by-step (same outcome) is below if you prefer not to use the bootstrap scripts.
+
+---
+
 ## Prerequisites (install once)
 
 | Tool | Version | Why |
@@ -112,7 +149,7 @@ Adminer: hub **Connect (from config)** → `http://localhost:8080/adminer-go.htm
 | **Maven** | 3.8+ | Build, tests, `spring-boot:run` |
 | **Docker** | Desktop (Win/Mac), or OrbStack/Colima (Mac) | Postgres, Kafka, Adminer, Kafka UI |
 | **Git** | any recent | Clone / sync |
-| **Python 3** | optional | Only for [`scripts/demo-firing-alerts.py`](scripts/demo-firing-alerts.py) fallback |
+| **Python 3** | optional | Only for [`scripts/demo-firing-alerts.py`](scripts/demo-firing-alerts.py) fallback; macOS bootstrap smoke uses it for JSON |
 
 ### Windows — install commands
 
@@ -449,7 +486,7 @@ curl -sS -X POST http://localhost:8081/v1/events/ingest \
 EOF
 ```
 
-A **201** means Kafka accepted the message, not that PostgreSQL already stored it. Query after a short consumer lag:
+A **201** means the event was durably accepted into the ingest outbox (Kafka relay and analytics Postgres write happen asynchronously). Query after a short relay + consumer lag:
 
 ```powershell
 # Windows
@@ -513,7 +550,12 @@ Stats and samples APIs are limited to **100 requests per IP per minute** (429 wh
 
 ## Storage
 
-PostgreSQL is the system of record for enriched events and alert definitions. It gives durable SQL aggregations (`GROUP BY`, `date_bin`, distinct IPs) without a paid warehouse. Kafka is the ingest buffer: it decouples HTTP accept from scoring and lets poison messages go to a DLQ. That split keeps ingest-api from owning a schema and keeps analytics as the only writer.
+Both apps share Compose Postgres database `wsa` (same `SPRING_DATASOURCE_*`). **ingest-api** owns only `ingest_outbox` (Flyway history table `ingest_flyway_schema_history`). **analytics-service** owns enriched events and alert definitions and remains the only writer of `security_events`. Kafka still decouples relay from scoring and carries poison messages to a DLQ.
+
+### Durability / lag monitoring
+
+- Micrometer gauge `ingest_outbox_pending` (pending outbox rows) via ingest actuator: `http://localhost:8081/actuator/metrics/ingest_outbox_pending`
+- Kafka UI (`http://localhost:8083/`): open the analytics consumer group / `security-events.raw` topic to watch consumer lag after relay publishes
 
 ## Threat score
 
@@ -544,8 +586,8 @@ Attack type mapping: INJECTION → SQL/Command Injection, XSS → Cross-Site Scr
 
 ## What we learned
 
-- **201 does not mean the event is in the database.** Ingest only waits for Kafka to accept the message. Analytics reads from Kafka later and writes to Postgres. That split made the ingest API smaller and easier to reason about.
-- **Two services need clear ownership.** Ingest has no database. Analytics owns Postgres and the score formula. The shared `contracts` jar only holds the JSON shape, so changing how we score attacks does not force a change to the message type.
+- **201 means durable outbox accept, not enrichment done.** Ingest commits to `ingest_outbox` then returns; a relay publishes to Kafka afterward. Analytics still reads from Kafka and writes enriched rows to Postgres. Clients should not treat 201 as “row visible in stats yet.”
+- **Two services need clear ownership.** Ingest owns only `ingest_outbox` on the shared `wsa` database. Analytics owns enrichment tables and the score formula. The shared `contracts` jar only holds the JSON shape, so changing how we score attacks does not force a change to the message type.
 - **SQL is a good fit for the stats APIs.** Summary, top attackers, and time buckets are plain queries (`GROUP BY`, `AVG`, `date_bin`). We did not need a separate analytics product for this size of data.
 - **Idempotency matters with Kafka.** The same `eventId` can show up twice (retry, redelivery). We skip insert when the id already exists, so duplicates do not inflate counts.
 - **API tests cover more than thin unit tests for the same path.** MockMvc E2E against the real Spring stack (H2 for analytics) exercises controller → service → repository together; keep unit tests for scoring, enrichment edge cases, and Kafka adapters.
@@ -561,7 +603,7 @@ Attack type mapping: INJECTION → SQL/Command Injection, XSS → Cross-Site Scr
 
 Platform and reliability:
 
-- **Stronger event durability (avoid silent loss).** There is no ingest state machine (`accepted` / `progressing` / `done`); HTTP 201 means Kafka broker ack only, not a Postgres write. Best fix: transactional outbox before 201 (durable accept → relay → Kafka), plus all-or-nothing batch publish, a reliable DLQ (wait on send + replay path), and lag/retention monitoring. Keep idempotent Postgres inserts by `event_id`. Client-visible processing statuses are optional observability, not a substitute for durable accept.
+- ~~**Stronger event durability**~~ **Done:** ingest transactional outbox before HTTP 201, async relay to Kafka, all-or-nothing batch accept, sync-wait DLQ publish, `ingest_outbox_pending` metric + Kafka UI for lag. Analytics inserts stay idempotent by `event_id`. Client-visible processing statuses remain optional later.
 - **S3 (or similar object storage) for long-term event retention.** Archive older enriched events out of PostgreSQL into cheap object storage so hot query counts and table size stay bounded, while historical raw/enriched data remains available for audit or offline analysis.
 - Add an end-to-end test: post an event to ingest, wait for the consumer, assert a row and a summary count.
 - Build a small web page that charts `/v1/stats/timeseries` and shows `/v1/stats/summary`.

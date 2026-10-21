@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: WSA ingest-api
   version: 0.1.0
-  description: Ingest security events and publish them to Kafka. HTTP 201 means Kafka ack, not Postgres write.
+  description: Ingest security events into a durable outbox, then relay to Kafka asynchronously. HTTP 201 means durable accept (outbox commit), not enrichment Postgres write.
 servers:
   - url: http://localhost:8081
 paths:
@@ -11,7 +11,7 @@ paths:
       tags: [Events]
       operationId: ingestEvents
       summary: Ingest one event or a batch
-      description: Accepts a single SecurityEventMessage object or a non-empty array. Stamps receivedAt and publishes to Kafka.
+      description: Accepts a single SecurityEventMessage object or a non-empty array. Stamps receivedAt and durably stores rows in the ingest outbox (Kafka relay is asynchronous).
       requestBody:
         required: true
         content:
@@ -80,7 +80,7 @@ paths:
 
       responses:
         '201':
-          description: Kafka accepted the message(s)
+          description: Durably accepted into the ingest outbox (will be relayed to Kafka)
         '400':
           description: Validation error
           content:
@@ -88,7 +88,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '503':
-          description: Kafka unavailable
+          description: Persistence unavailable (cannot durable-accept)
           content:
             application/json:
               schema:
