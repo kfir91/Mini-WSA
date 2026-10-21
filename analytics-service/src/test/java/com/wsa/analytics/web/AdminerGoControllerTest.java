@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class AdminerGoControllerTest {
 
@@ -36,12 +37,11 @@ class AdminerGoControllerTest {
     }
 
     @Test
-    void configJsonUsesExplicitServerAndDatasource() {
+    void configJsonUsesExplicitServerAndDatasourceWithoutPassword() {
         AdminerGoController controller = new AdminerGoController(
                 "http://localhost:8082/",
                 "wsa-postgres",
                 "wsa",
-                "change-me",
                 "jdbc:postgresql://127.0.0.1:5432/wsa",
                 "");
 
@@ -50,25 +50,24 @@ class AdminerGoControllerTest {
         assertEquals("http://localhost:8082/", cfg.get("url"));
         assertEquals("wsa-postgres", cfg.get("server"));
         assertEquals("wsa", cfg.get("username"));
-        assertEquals("change-me", cfg.get("password"));
         assertEquals("wsa", cfg.get("database"));
         assertEquals("pgsql", cfg.get("driver"));
+        assertFalse(cfg.containsKey("password"));
     }
 
     @Test
-    void configFallsBackToJdbcWhenOverridesBlankAndNullPassword() {
+    void configFallsBackToJdbcWhenOverridesBlank() {
         AdminerGoController controller = new AdminerGoController(
                 "http://localhost:8082/",
                 "  ",
                 "wsa",
-                null,
                 "jdbc:postgresql://pghost:5433/analytics_db",
                 null);
 
         Map<String, String> cfg = controller.config();
         assertEquals("pghost:5433", cfg.get("server"));
-        assertEquals("", cfg.get("password"));
         assertEquals("analytics_db", cfg.get("database"));
+        assertFalse(cfg.containsKey("password"));
     }
 
     @Test
@@ -77,7 +76,6 @@ class AdminerGoControllerTest {
                 "http://localhost:8082/",
                 "explicit-server",
                 "u",
-                "p",
                 "jdbc:postgresql://127.0.0.1:5432/ignored",
                 "override_db");
         assertEquals("override_db", controller.config().get("database"));

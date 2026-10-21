@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Bootstrap WSA on macOS: install missing tools, start Docker infra, build, run both apps, smoke-test.
+# Bootstrap WSA on macOS: install missing tools, start Docker infra, build, run analytics + ingest + client, smoke-test.
 #
 # Usage:
 #   chmod +x scripts/*.sh generator/*.sh
@@ -124,27 +124,92 @@ wait_docker() {
   exit 1
 }
 
+merge_missing_env_keys() {
+  local example=".env.example" target=".env"
+  if [[ ! -f "${example}" ]]; then
+    return
+  fi
+  if [[ ! -f "${target}" ]]; then
+    cp "${example}" "${target}"
+    echo "  Created .env from .env.example"
+    return
+  fi
+  local appended=0
+  local key
+  while IFS= read -r line || [[ -n "${line}" ]]; do
+    [[ "${line}" =~ ^[[:space:]]*# ]] && continue
+    [[ "${line}" != *=* ]] && continue
+    key="${line%%=*}"
+    key="$(echo "${key}" | tr -d '[:space:]')"
+    [[ -z "${key}" ]] && continue
+    if ! grep -qE "^[[:space:]]*${key}=" "${target}"; then
+      if [[ "${appended}" -eq 0 ]]; then
+        printf '\n# --- added from .env.example (missing keys) ---\n' >>"${target}"
+      fi
+      printf '%s\n' "${line}" >>"${target}"
+      appended=$((appended + 1))
+    fi
+  done <"${example}"
+  if [[ "${appended}" -gt 0 ]]; then
+    echo "  Merged ${appended} missing key(s) from .env.example into .env"
+  fi
+}
+
+apply_wsa_derived_env() {
+  export WSA_HOST="${WSA_HOST:-localhost}"
+  export WSA_INGEST_PORT="${WSA_INGEST_PORT:-8081}"
+  export WSA_ANALYTICS_PORT="${WSA_ANALYTICS_PORT:-8080}"
+  export WSA_CLIENT_PORT="${WSA_CLIENT_PORT:-8084}"
+  export WSA_ADMINER_PORT="${WSA_ADMINER_PORT:-8082}"
+  export WSA_KAFKA_UI_PORT="${WSA_KAFKA_UI_PORT:-8083}"
+  export WSA_POSTGRES_PORT="${WSA_POSTGRES_PORT:-5432}"
+  export WSA_KAFKA_PORT="${WSA_KAFKA_PORT:-9092}"
+  export WSA_VAULT_PORT="${WSA_VAULT_PORT:-8200}"
+  local db_name="${POSTGRES_DB:-wsa}"
+
+  export WSA_ANALYTICS_BASE_URL="http://${WSA_HOST}:${WSA_ANALYTICS_PORT}"
+  export ADMINER_URL="http://${WSA_HOST}:${WSA_ADMINER_PORT}/"
+  export VAULT_URI="http://${WSA_HOST}:${WSA_VAULT_PORT}"
+  export KAFKA_BOOTSTRAP_SERVERS="${WSA_HOST}:${WSA_KAFKA_PORT}"
+  export SPRING_DATASOURCE_URL="jdbc:postgresql://${WSA_HOST}:${WSA_POSTGRES_PORT}/${db_name}"
+
+  if [[ -z "${KAFKA_ADVERTISED_LISTENERS:-}" ]]; then
+    export KAFKA_ADVERTISED_LISTENERS="PLAINTEXT://${WSA_HOST}:${WSA_KAFKA_PORT},INTERNAL://kafka:29092"
+  fi
+}
+
 load_env() {
   set -a
   # shellcheck disable=SC1091
   source .env
+  if [[ -f .vault/approle.env ]]; then
+    # shellcheck disable=SC1091
+    source .vault/approle.env
+  fi
+  if [[ -f .vault/postgres_password ]]; then
+    POSTGRES_PASSWORD="$(tr -d '\r\n' <.vault/postgres_password)"
+    export POSTGRES_PASSWORD
+    export ADMINER_PASSWORD="${POSTGRES_PASSWORD}"
+  fi
   set +a
-  export KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+  apply_wsa_derived_env
 }
 
 wait_compose_healthy() {
-  step "Waiting for Postgres and Kafka healthy"
+  step "Waiting for Vault, Postgres, and Kafka healthy"
   local deadline=$((SECONDS + 180))
   while true; do
     local raw
     raw="$(docker compose --env-file .env ps 2>&1 || true)"
-    if echo "${raw}" | grep -qiE 'postgres.*healthy' && echo "${raw}" | grep -qiE 'kafka.*healthy'; then
+    if echo "${raw}" | grep -qiE 'vault.*healthy' \
+      && echo "${raw}" | grep -qiE 'postgres.*healthy' \
+      && echo "${raw}" | grep -qiE 'kafka.*healthy'; then
       echo "  Infra healthy"
       return
     fi
     if (( SECONDS >= deadline )); then
       echo "${raw}"
-      echo "Timed out waiting for healthy postgres/kafka." >&2
+      echo "Timed out waiting for healthy vault/postgres/kafka." >&2
       exit 1
     fi
     sleep 5
@@ -167,6 +232,12 @@ start_app() {
   echo "  Starting ${module} on :${port} (log: ${log})"
   (
     load_env
+    export SERVER_PORT="${port}"
+    export KAFKA_BOOTSTRAP_SERVERS
+    export SPRING_DATASOURCE_URL
+    export VAULT_URI
+    export ADMINER_URL
+    export WSA_ANALYTICS_BASE_URL
     mvn -pl "${module}" spring-boot:run
   ) >"${log}" 2>&1 &
   echo $! >"target/bootstrap-${module}.pid"
@@ -195,16 +266,21 @@ wait_docker
 step "Working directory: ${REPO_ROOT}"
 
 step "Ensuring .env"
-if [[ ! -f .env ]]; then
-  cp .env.example .env
-  echo "  Created .env from .env.example"
-else
+merge_missing_env_keys
+if [[ -f .env ]]; then
   echo "  Found .env"
 fi
 load_env
 
+INGEST_BASE="http://${WSA_HOST}:${WSA_INGEST_PORT}"
+ANALYTICS_BASE="http://${WSA_HOST}:${WSA_ANALYTICS_PORT}"
+CLIENT_BASE="http://${WSA_HOST}:${WSA_CLIENT_PORT}"
+
 if [[ "${SKIP_COMPOSE}" -eq 0 ]]; then
-  step "Starting Compose infra"
+  step "Seeding HashiCorp Vault (KV + AppRole)"
+  bash "${SCRIPT_DIR}/vault-seed.sh"
+  load_env
+  step "Starting Compose infra (Postgres password from Vault)"
   docker compose --env-file .env up -d
   wait_compose_healthy
 else
@@ -223,23 +299,30 @@ echo "  Build OK"
 if [[ "${SKIP_APPS}" -eq 0 ]]; then
   step "Starting Spring apps (background)"
   mkdir -p target
-  if ! port_in_use 8081; then
-    start_app ingest-api 8081 target/bootstrap-ingest.log
+  # Analytics first on empty DB (Flyway owns shared schema); ingest uses a separate history table.
+  if ! port_in_use "${WSA_ANALYTICS_PORT}"; then
+    start_app analytics-service "${WSA_ANALYTICS_PORT}" target/bootstrap-analytics.log
   else
-    echo "  Port 8081 already in use — leaving existing process"
+    echo "  Port ${WSA_ANALYTICS_PORT} already in use — leaving existing process"
   fi
-  if ! port_in_use 8080; then
-    start_app analytics-service 8080 target/bootstrap-analytics.log
+  if ! port_in_use "${WSA_INGEST_PORT}"; then
+    start_app ingest-api "${WSA_INGEST_PORT}" target/bootstrap-ingest.log
   else
-    echo "  Port 8080 already in use — leaving existing process"
+    echo "  Port ${WSA_INGEST_PORT} already in use — leaving existing process"
+  fi
+  if ! port_in_use "${WSA_CLIENT_PORT}"; then
+    start_app client "${WSA_CLIENT_PORT}" target/bootstrap-client.log
+  else
+    echo "  Port ${WSA_CLIENT_PORT} already in use — leaving existing process"
   fi
 
-  wait_http_ok "http://localhost:8081/actuator/health" "ingest-api"
-  wait_http_ok "http://localhost:8080/actuator/health" "analytics-service"
+  wait_http_ok "${ANALYTICS_BASE}/actuator/health" "analytics-service"
+  wait_http_ok "${INGEST_BASE}/actuator/health" "ingest-api"
+  wait_http_ok "${CLIENT_BASE}/actuator/health" "client"
 
   step "Smoke test (ingest → Kafka → Postgres)"
   eid="evt-bootstrap-$(date +%Y%m%d%H%M%S)"
-  curl -fsS -X POST "http://localhost:8081/v1/events/ingest" \
+  curl -fsS -X POST "${INGEST_BASE}/v1/events/ingest" \
     -H "Content-Type: application/json" \
     -d "{
       \"eventId\": \"${eid}\",
@@ -269,30 +352,34 @@ if [[ "${SKIP_APPS}" -eq 0 ]]; then
   ok=0
   for _ in $(seq 1 30); do
     sleep 2
-    total="$(curl -fsS "http://localhost:8080/v1/stats/summary?configId=14227" \
-      | python3 -c 'import json,sys; print(json.load(sys.stdin).get("totalEvents",0))' 2>/dev/null || echo 0)"
-    if [[ "${total}" -ge 1 ]]; then
-      echo "  Summary totalEvents=${total}"
+    found="$(curl -fsS "${ANALYTICS_BASE}/v1/events/samples?configId=14227&limit=100&offset=0" \
+      | python3 -c "import json,sys; eid=sys.argv[1]; items=json.load(sys.stdin).get('items') or []; print(sum(1 for i in items if i.get('eventId')==eid))" "${eid}" 2>/dev/null || echo 0)"
+    if [[ "${found}" -ge 1 ]]; then
+      total="$(curl -fsS "${ANALYTICS_BASE}/v1/stats/summary?configId=14227" \
+        | python3 -c 'import json,sys; print(json.load(sys.stdin).get("totalEvents",0))' 2>/dev/null || echo 0)"
+      echo "  Sample found for ${eid}; summary totalEvents=${total}"
       ok=1
       break
     fi
   done
   if [[ "${ok}" -ne 1 ]]; then
-    echo "Analytics did not show events in summary within ~60s." >&2
+    echo "Analytics did not show eventId=${eid} in samples within ~60s." >&2
     exit 1
   fi
 fi
 
 echo ""
 echo "OK — WSA is running locally."
-echo "  Hub:       http://localhost:8080/"
-echo "  Ingest:    http://localhost:8081/swagger-ui/index.html"
-echo "  Analytics: http://localhost:8080/swagger-ui/index.html"
-echo "  Kafka UI:  http://localhost:8083/"
-echo "  Adminer:   http://localhost:8082/"
+echo "  Hub:       ${CLIENT_BASE}/"
+echo "  Stats UI:  ${CLIENT_BASE}/stats"
+echo "  Ingest:    ${INGEST_BASE}/swagger-ui/index.html"
+echo "  Analytics: ${ANALYTICS_BASE}/swagger-ui/index.html"
+echo "  Kafka UI:  http://${WSA_HOST}:${WSA_KAFKA_UI_PORT}/"
+echo "  Adminer:   http://${WSA_HOST}:${WSA_ADMINER_PORT}/"
 echo "  Work dir:  ${REPO_ROOT}"
 echo "  App logs:  ${REPO_ROOT}/target/bootstrap-ingest.log"
 echo "             ${REPO_ROOT}/target/bootstrap-analytics.log"
+echo "             ${REPO_ROOT}/target/bootstrap-client.log"
 echo "  PIDs:      ${REPO_ROOT}/target/bootstrap-*.pid"
 echo ""
 echo "Demo data (optional): ./scripts/seed-demo-data.sh"
