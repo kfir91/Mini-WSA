@@ -3,7 +3,7 @@
 # Usage: ./generator/generate.sh [--base-url URL] [--count N] [--rate N] [--wave sql|xss|mixed] [--config-id N] [--burst-size N]
 set -euo pipefail
 
-BASE_URL="http://localhost:8081"
+BASE_URL=""
 COUNT=20
 RATE=10
 WAVE="sql"
@@ -36,6 +36,16 @@ if [[ ! -f "${REPO_ROOT}/pom.xml" ]]; then
   exit 1
 fi
 cd "${REPO_ROOT}"
+
+if [[ -f .env ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source .env
+  set +a
+fi
+if [[ -z "${BASE_URL}" ]]; then
+  BASE_URL="http://${WSA_HOST:-localhost}:${WSA_INGEST_PORT:-8081}"
+fi
 
 ARGS_LINE="--base-url ${BASE_URL} --count ${COUNT} --rate ${RATE} --wave ${WAVE} --config-id ${CONFIG_ID} --burst-size ${BURST_SIZE}"
 echo "Building generator modules (quiet)..."

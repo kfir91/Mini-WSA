@@ -3,8 +3,8 @@
 # Usage: ./scripts/seed-demo-data.sh [--event-count N] [--rate N] [--skip-generator] [--skip-alerts] [--skip-fire]
 set -euo pipefail
 
-INGEST_URL="http://localhost:8081"
-ANALYTICS_URL="http://localhost:8080"
+INGEST_URL=""
+ANALYTICS_URL=""
 EVENT_COUNT=10000
 RATE=100
 CONFIG_ID=14227
@@ -44,6 +44,25 @@ if [[ ! -f "${REPO_ROOT}/pom.xml" ]]; then
   exit 1
 fi
 cd "${REPO_ROOT}"
+
+if [[ -f .env ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source .env
+  set +a
+fi
+WSA_HOST="${WSA_HOST:-localhost}"
+WSA_INGEST_PORT="${WSA_INGEST_PORT:-8081}"
+WSA_ANALYTICS_PORT="${WSA_ANALYTICS_PORT:-8080}"
+WSA_CLIENT_PORT="${WSA_CLIENT_PORT:-8084}"
+WSA_KAFKA_UI_PORT="${WSA_KAFKA_UI_PORT:-8083}"
+CLIENT_BASE="http://${WSA_HOST}:${WSA_CLIENT_PORT}"
+if [[ -z "${INGEST_URL}" ]]; then
+  INGEST_URL="http://${WSA_HOST}:${WSA_INGEST_PORT}"
+fi
+if [[ -z "${ANALYTICS_URL}" ]]; then
+  ANALYTICS_URL="http://${WSA_HOST}:${WSA_ANALYTICS_PORT}"
+fi
 
 step() { printf '\n==> %s\n' "$1"; }
 
@@ -172,8 +191,8 @@ fi
 
 echo ""
 echo "Seed complete."
-echo "  Hub:       http://localhost:8080/"
+echo "  Hub:       ${CLIENT_BASE}/"
 echo "  Samples:   ${ANALYTICS_URL}/v1/events/samples?configId=${CONFIG_ID}&limit=20"
 echo "  Alerts:    ${ANALYTICS_URL}/v1/alerts/evaluate"
-echo "  Kafka UI:  http://localhost:8083/"
-echo "  Adminer:   http://localhost:8080/adminer-go.html"
+echo "  Kafka UI:  http://${WSA_HOST}:${WSA_KAFKA_UI_PORT}/"
+echo "  Adminer:   ${ANALYTICS_URL}/adminer-go.html"

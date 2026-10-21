@@ -14,8 +14,8 @@
   .\scripts\seed-demo-data.ps1
 #>
 param(
-    [string] $IngestUrl = "http://localhost:8081",
-    [string] $AnalyticsUrl = "http://localhost:8080",
+    [string] $IngestUrl = "",
+    [string] $AnalyticsUrl = "",
     [int] $EventCount = 10000,
     [int] $Rate = 100,
     [long] $ConfigId = 14227,
@@ -33,6 +33,29 @@ if (-not (Test-Path (Join-Path $repoRoot "pom.xml"))) {
     throw "Could not find WSA repo root (parent pom.xml missing)."
 }
 Set-Location $repoRoot
+
+function Import-DotEnv([string] $EnvFile) {
+    if (-not (Test-Path -LiteralPath $EnvFile)) { return }
+    Get-Content -LiteralPath $EnvFile | ForEach-Object {
+        if ($_ -match '^\s*#' -or $_ -notmatch '=') { return }
+        $k, $v = $_ -split '=', 2
+        Set-Item -Path "Env:$k" -Value $v.Trim()
+    }
+}
+
+Import-DotEnv (Join-Path $repoRoot ".env")
+$hostName = if ($env:WSA_HOST) { $env:WSA_HOST } else { "localhost" }
+$ingestPort = if ($env:WSA_INGEST_PORT) { $env:WSA_INGEST_PORT } else { "8081" }
+$analyticsPort = if ($env:WSA_ANALYTICS_PORT) { $env:WSA_ANALYTICS_PORT } else { "8080" }
+$clientPort = if ($env:WSA_CLIENT_PORT) { $env:WSA_CLIENT_PORT } else { "8084" }
+$kafkaUiPort = if ($env:WSA_KAFKA_UI_PORT) { $env:WSA_KAFKA_UI_PORT } else { "8083" }
+if ([string]::IsNullOrWhiteSpace($IngestUrl)) {
+    $IngestUrl = "http://${hostName}:${ingestPort}"
+}
+if ([string]::IsNullOrWhiteSpace($AnalyticsUrl)) {
+    $AnalyticsUrl = "http://${hostName}:${analyticsPort}"
+}
+$clientBase = "http://${hostName}:${clientPort}"
 
 function Write-Step([string] $Message) {
     Write-Host ""
@@ -181,8 +204,8 @@ if (-not $SkipFire) {
 
 Write-Host ""
 Write-Host "Seed complete." -ForegroundColor Green
-Write-Host "  Hub:       http://localhost:8080/"
+Write-Host "  Hub:       ${clientBase}/"
 Write-Host "  Samples:   $AnalyticsUrl/v1/events/samples?configId=$ConfigId&limit=20"
 Write-Host "  Alerts:    $AnalyticsUrl/v1/alerts/evaluate"
-Write-Host "  Kafka UI:  http://localhost:8083/"
-Write-Host "  Adminer:   http://localhost:8080/adminer-go.html"
+Write-Host "  Kafka UI:  http://${hostName}:${kafkaUiPort}/"
+Write-Host "  Adminer:   ${AnalyticsUrl}/adminer-go.html"

@@ -4,7 +4,7 @@ info:
   version: 0.1.0
   description: Query enriched security events, stats, timeseries, and persisted alerts.
 servers:
-  - url: http://localhost:8080
+  - url: /
 paths:
   /v1/stats/summary:
     get:
