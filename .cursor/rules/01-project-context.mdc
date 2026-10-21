@@ -13,16 +13,17 @@ Mini WSA is a local security analytics platform: ingest DLRs, enrich them, store
 - Database: PostgreSQL 16 + Flyway (analytics-service only)
 - Messaging: Kafka 3.x KRaft (`security-events.raw`, `security-events.dlq`) — topic names from config, not Java constants
 - Cache: none (in-memory Bucket4j on analytics read APIs only)
-- Frontend: none
-- Deployment: Docker Compose on Windows localhost. No Kubernetes, Eureka, AWS, or paid brokers.
+- Frontend: separate `client` service (`:8084`) — React (Vite+TS) SPA; Maven/`npm run build` generates `static/`; proxies `/v1/**` to analytics
+- Deployment: Docker Compose on Windows/macOS localhost. HashiCorp Vault (Community) for credentials. No Kubernetes, Eureka, AWS, or paid brokers.
 - OpenAPI: contract-first YAML under `src/main/resources/open-api/`; `openapi-generator-maven-plugin` on `generate-sources`; Swagger UI serves those YAML files
 
 ## Architecture
 - Style: layered Controller → Service → Manager (only if reused) → Repository/DAO
-- Modules: `miniwsa-contracts`, `ingest-api`, `analytics-service`, `generator`
-- Base packages: `com.miniwsa.contracts`, `com.miniwsa.ingest`, `com.miniwsa.analytics`, `com.miniwsa.generator`
+- Modules: `contracts`, `ingest-api`, `analytics-service`, `client`, `generator`
+- Base packages: `com.wsa.contracts`, `com.wsa.ingest`, `com.wsa.analytics`, `com.wsa.client`, `com.wsa.generator`
 - ingest-api (`:8081`): HTTP ingest, validation, `receivedAt`, Kafka produce. No database, no DAO, no scoring.
-- analytics-service (`:8080`): consumer, enrichment, PostgreSQL owner, stats/samples/timeseries/alerts, read rate limit.
+- analytics-service (`:8080`): consumer, enrichment, PostgreSQL owner, stats/samples/timeseries/alerts, read rate limit. No browser UI.
+- client (`:8084`): static hub/Stats pages + reverse proxy to analytics. No domain, JPA, or Kafka.
 - generator: CLI that POSTs to ingest-api. Not a long-running service.
 - contracts: wire models/enums from OpenAPI only. No scoring, no JPA, no Spring.
 
@@ -55,13 +56,13 @@ Mini WSA is a local security analytics platform: ingest DLRs, enrich them, store
 - Run locally: Compose for Postgres+Kafka; `mvn spring-boot:run` per app (or `java -jar` after `mvn package`).
 
 ## Engineering principles
-Keep it simple. OOP/SOLID. Separate HTTP, business logic, persistence, messaging, and config. No hardcoded URLs, ports, topics, timeouts, or limits — use `application.yml` and env vars. Never commit secrets (`.env` gitignored; `.env.example` placeholders only). One owner per concern. Validate inputs; do not swallow exceptions. Idempotent `event_id`; Kafka retries + DLQ. Test meaningful behavior only.
+Keep it simple. OOP/SOLID. Separate HTTP, business logic, persistence, messaging, and config. No hardcoded URLs, ports, topics, timeouts, or limits — use `application.yml` and env vars. Credentials via Vault (not `.env`); never commit secrets (`.env` and `.vault/` gitignored; `.env.example` placeholders only). Vault stays outside Controller→Service→Repository (startup config). One owner per concern. Validate inputs; do not swallow exceptions. Idempotent `event_id`; Kafka retries + DLQ. Test meaningful behavior only.
 
 ## Known pitfalls
 - Do not add a DAO to ingest-api.
 - Do not put scoring in contracts.
 - Do not share JPA entities or REST api models across services.
 - Do not classify/score inside the ingest HTTP request; analytics owns that after Kafka.
-- Do not log `POSTGRES_PASSWORD` or other secrets.
+- Do not log `POSTGRES_PASSWORD`, Vault tokens, AppRole secret ids, or other secrets.
 - Do not implement the next story on the current branch.
 - Do not put domain score labels into OpenAPI contracts YAML.
