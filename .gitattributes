@@ -1,0 +1,7 @@
+# Default to LF so macOS/Linux shell scripts and shebangs work after clone.
+* text=auto eol=lf
+
+# Keep Windows entrypoints CRLF-friendly.
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf

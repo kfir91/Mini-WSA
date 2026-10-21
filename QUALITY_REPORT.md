@@ -1,47 +1,73 @@
 # Quality report (JaCoCo + SonarQube)
 
-Snapshot of the **last local quality run** for Mini WSA. Regenerate after meaningful test or production changes.
+Snapshot of the **last local quality run** for WSA. Regenerate after meaningful test or production changes.
 
 | Field | Value |
 |---|---|
-| **Run date** | 2026-10-15 11:09 +03:00 |
-| **Host** | Windows local (`C:\Temp\miniwsa-jacoco` ASCII build copy) |
-| **Command (coverage)** | `mvn verify` |
-| **Command (Sonar)** | *not run* — SonarQube on `:9000` was unreachable (Docker daemon / UI down) |
+| **Run date** | 2026-10-21 18:00 +03:00 |
+| **Host** | Windows local — ASCII build copy `C:\Temp\wsa-build` (synced from repo; Hebrew path breaks OpenAPI codegen) |
+| **JDK / Maven** | Java 17.0.12 · Maven (reactor `mvn clean verify`) |
+| **Command (coverage)** | `mvn clean verify` |
+| **Command (Sonar)** | *not run* — Docker Desktop unable to start (`docker info` / daemon) |
+| **Compose infra** | *not verified* — same Docker Desktop failure (legacy `DOCKER_HOST=tcp://192.168.99.100:2376` was cleared; Desktop still failed to start) |
 | **Gate** | JaCoCo `check` ≥ **95%** LINE and BRANCH per module |
-| **Result** | `mvn verify` **PASSED** |
+| **Result** | `mvn clean verify` **PASSED** |
+| **Tests** | **121** run · **0** failures · **0** errors · **0** skipped |
 
 HTML reports (after `mvn verify`):
 
-- Aggregate: `miniwsa-coverage/target/site/jacoco-aggregate/index.html`
+- Aggregate: `coverage/target/site/jacoco-aggregate/index.html`
 - Per module: `<module>/target/site/jacoco/index.html`
+
+Counters below are **after configured excludes** (OpenAPI/MapStruct generated classes, `*Application*`, CLI I/O, `KafkaConsumerConfig`, Postgres-only timeseries query). Compare reviewer tooling to these excludes before claiming a gap.
+
+---
+
+## Tests (Surefire)
+
+| Kind | Classes (examples) | Count |
+|---|---|---:|
+| E2E / API (MockMvc + Spring) | `EventIngestApiE2ETest`, `AnalyticsApiE2ETest`, `AnalyticsRateLimitE2ETest` | 32 |
+| Application context | `IngestApiApplicationTest`, `AnalyticsServiceApplicationTest` | 2 |
+| Unit / focused | services, managers, messaging, generator CLI, contracts | 87 |
+| **Total** | | **121** |
+
+E2E coverage paths exercised: ingest validate/Kafka publish errors, analytics summary/samples/timeseries/alerts, rate limit 429, Adminer-go config, demo alert fire.
 
 ---
 
 ## JaCoCo — module summary
 
-Counters are after configured excludes (OpenAPI/MapStruct generated classes, `*Application*`, CLI I/O, Kafka consumer config, Postgres-only timeseries query).
+| Module | LINE | BRANCH | INSTRUCTION | METHOD | Gate |
+|---|---:|---:|---:|---:|---|
+| ingest-api | **100.0%** (84/84) | **100.0%** (32/32) | 100.0% (363/363) | 100.0% (20/20) | PASS |
+| analytics-service | **99.0%** (585/591) | **96.7%** (174/180) | 94.2% (3276/3478) | 87.0% (227/261) | PASS |
+| generator | **100.0%** (117/117) | **97.5%** (39/40) | 100.0% (537/537) | 100.0% (33/33) | PASS |
+| contracts | *skipped* (`jacoco.skip=true` — generated models only) | | | | n/a |
+| **aggregate** (`coverage`) | **99.2%** (786/792) | **97.2%** (245/252) | 95.4% (4176/4378) | 89.2% (280/314) | PASS* |
 
-| Module | LINE | BRANCH | INSTRUCTION | METHOD | CLASS | Gate |
-|---|---:|---:|---:|---:|---:|---|
-| ingest-api | **100.0%** (89/89) | **97.1%** (33/34) | 99.5% (398/400) | 100.0% (21/21) | 100.0% (7/7) | PASS |
-| analytics-service | **99.6%** (445/447) | **100.0%** (130/130) | 96.2% (2463/2559) | 99.0% (193/195) | 100.0% (35/35) | PASS |
-| generator | **100.0%** (120/120) | **97.5%** (39/40) | 100.0% (568/568) | 100.0% (33/33) | 100.0% (4/4) | PASS |
-| miniwsa-contracts | *skipped* (`jacoco.skip=true` — generated models only) | | | | | n/a |
-| **aggregate** (`miniwsa-coverage`) | **99.7%** (654/656) | **99.0%** (202/204) | 97.2% (3429/3527) | 99.2% (247/249) | 100.0% (46/46) | PASS* |
-
-\*Aggregate is report-only; the Maven gate is enforced per code module (≥95% each ⇒ aggregate ≥95%).
+\*Aggregate is report-only; the Maven gate is enforced per code module (≥95% LINE and BRANCH each).
 
 ### Aggregate counters (detail)
 
 | Counter | Covered | Missed | Total | Ratio |
 |---|---:|---:|---:|---:|
-| LINE | 654 | 2 | 656 | 99.7% |
-| BRANCH | 202 | 2 | 204 | 99.0% |
-| INSTRUCTION | 3429 | 98 | 3527 | 97.2% |
-| COMPLEXITY | 357 | 4 | 361 | 98.9% |
-| METHOD | 247 | 2 | 249 | 99.2% |
-| CLASS | 46 | 0 | 46 | 100.0% |
+| LINE | 786 | 6 | 792 | 99.2% |
+| BRANCH | 245 | 7 | 252 | 97.2% |
+| INSTRUCTION | 4176 | 202 | 4378 | 95.4% |
+| METHOD | 280 | 34 | 314 | 89.2% |
+
+### Remaining misses (acceptable under gate)
+
+| Module | Class | LINE missed | BRANCH missed |
+|---|---|---:|---:|
+| analytics-service | `ActionWeight` / `SeverityWeight` | 1 + 1 | 0 |
+| analytics-service | `AlertDefinitionEntity` | 3 | 0 |
+| analytics-service | `StatsService` | 1 | 1 |
+| analytics-service | `SecurityEventSpecifications` | 0 | 2 |
+| analytics-service | `AdminerGoController` | 0 | 2 |
+| analytics-service | `DemoAlertFiringService` | 0 | 1 |
+| generator | (one branch in CLI/wave path) | 0 | 1 |
 
 ---
 
@@ -49,24 +75,24 @@ Counters are after configured excludes (OpenAPI/MapStruct generated classes, `*A
 
 | Module | Package | LINE | BRANCH |
 |---|---|---:|---:|
-| ingest-api | `com.miniwsa.ingest.service` | 100.0% | 100.0% |
-| ingest-api | `com.miniwsa.ingest.controller` | 100.0% | 94.4% |
-| ingest-api | `com.miniwsa.ingest.exception` | 100.0% | 100.0% |
-| ingest-api | `com.miniwsa.ingest.config` | 100.0% | n/a |
-| ingest-api | `com.miniwsa.ingest.client` | 100.0% | n/a |
-| analytics-service | `com.miniwsa.analytics.service` | 100.0% | 100.0% |
-| analytics-service | `com.miniwsa.analytics.domain` | 100.0% | 100.0% |
-| analytics-service | `com.miniwsa.analytics.manager` | 100.0% | 100.0% |
-| analytics-service | `com.miniwsa.analytics.controller` | 100.0% | 100.0% |
-| analytics-service | `com.miniwsa.analytics.repository` | 100.0% | 100.0% |
-| analytics-service | `com.miniwsa.analytics.mapper` | 100.0% | 100.0% |
-| analytics-service | `com.miniwsa.analytics.web` | 100.0% | 100.0% |
-| analytics-service | `com.miniwsa.analytics.exception` | 100.0% | n/a |
-| analytics-service | `com.miniwsa.analytics.config` | 100.0% | n/a |
-| analytics-service | `com.miniwsa.analytics.messaging.consumer` | 100.0% | n/a |
-| analytics-service | `com.miniwsa.analytics.messaging.producer` | 100.0% | 100.0% |
-| analytics-service | `com.miniwsa.analytics.entity` | 94.4% | n/a |
-| generator | `com.miniwsa.generator` | 100.0% | 97.5% |
+| ingest-api | `com.wsa.ingest.service` | 100.0% | 100.0% |
+| ingest-api | `com.wsa.ingest.controller` | 100.0% | 100.0% |
+| ingest-api | `com.wsa.ingest.exception` | 100.0% | 100.0% |
+| ingest-api | `com.wsa.ingest.config` | 100.0% | n/a |
+| ingest-api | `com.wsa.ingest.client` | 100.0% | n/a |
+| analytics-service | `com.wsa.analytics.service` | 99.4% | 94.1% |
+| analytics-service | `com.wsa.analytics.domain` | 97.7% | 100.0% |
+| analytics-service | `com.wsa.analytics.manager` | 100.0% | 100.0% |
+| analytics-service | `com.wsa.analytics.controller` | 100.0% | 100.0% |
+| analytics-service | `com.wsa.analytics.repository` | 100.0% | 96.0% |
+| analytics-service | `com.wsa.analytics.mapper` | 100.0% | 100.0% |
+| analytics-service | `com.wsa.analytics.web` | 100.0% | 95.5% |
+| analytics-service | `com.wsa.analytics.exception` | 100.0% | n/a |
+| analytics-service | `com.wsa.analytics.config` | 100.0% | n/a |
+| analytics-service | `com.wsa.analytics.messaging.consumer` | 100.0% | n/a |
+| analytics-service | `com.wsa.analytics.messaging.producer` | 100.0% | 100.0% |
+| analytics-service | `com.wsa.analytics.entity` | 92.7% | n/a |
+| generator | `com.wsa.generator` | 100.0% | 97.5% |
 
 ---
 
@@ -75,8 +101,8 @@ Counters are after configured excludes (OpenAPI/MapStruct generated classes, `*A
 | Field | Value |
 |---|---|
 | **Host** | `http://localhost:9000` (Compose profile `sonar`) |
-| **Project key** | `miniwsa` |
-| **Last analysis** | **Not available** — UI/API not reachable during this snapshot |
+| **Project key** | `wsa` |
+| **Last analysis** | **Not available** — Docker Desktop unable to start during this snapshot |
 | **Bugs** | — |
 | **Vulnerabilities** | — |
 | **Code smells** | — |
@@ -87,11 +113,20 @@ Counters are after configured excludes (OpenAPI/MapStruct generated classes, `*A
 
 ### How to fill Sonar rows next time
 
-```powershell
+```bash
 docker compose --profile sonar up -d
 # Wait until http://localhost:9000 is up; login admin/admin, set password, create token → .env SONAR_TOKEN=
+```
 
+```powershell
+# Windows — clear stale docker-machine host first if set:
+# Remove-Item Env:DOCKER_HOST,Env:DOCKER_TLS_VERIFY,Env:DOCKER_CERT_PATH -ErrorAction SilentlyContinue
 mvn verify sonar:sonar "-Dsonar.token=$env:SONAR_TOKEN"
+```
+
+```bash
+# macOS / Linux
+mvn verify sonar:sonar "-Dsonar.token=$SONAR_TOKEN"
 ```
 
 Then open the project on `:9000` and update the Sonar table above (bugs, smells, hotspots, coverage, duplications, gate status).
@@ -100,6 +135,6 @@ Then open the project on `:9000` and update the Sonar table above (bugs, smells,
 
 ## Refresh this file
 
-1. `mvn verify` (from an ASCII path if needed).
-2. Optionally `mvn verify sonar:sonar` against local SonarQube.
+1. Sync to ASCII path if needed, then `mvn clean verify`, or `.\scripts\validate-clean-checkout.ps1` / `./scripts/validate-clean-checkout.sh`.
+2. Optionally `mvn verify sonar:sonar` against local SonarQube (requires Docker Desktop running).
 3. Replace the tables with the new counters / Sonar UI numbers and bump **Run date**.

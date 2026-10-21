@@ -25,8 +25,8 @@ except ImportError:
 DSN = dict(
     host=os.getenv("PGHOST", "127.0.0.1"),
     port=int(os.getenv("PGPORT", "5432")),
-    dbname=os.getenv("PGDATABASE", "miniwsa"),
-    user=os.getenv("PGUSER", "miniwsa"),
+    dbname=os.getenv("PGDATABASE", "wsa"),
+    user=os.getenv("PGUSER", "wsa"),
     password=os.getenv("PGPASSWORD", "change-me"),
 )
 

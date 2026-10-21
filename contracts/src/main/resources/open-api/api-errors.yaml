@@ -1,0 +1,97 @@
+openapi: 3.0.3
+info:
+  title: WSA API errors
+  version: 0.1.0
+  description: |
+    Shared error catalog for ingest-api and analytics-service.
+    ErrorCode / ErrorMessage / ErrorReason are the source of truth for client-facing text.
+paths: {}
+components:
+  schemas:
+    ErrorCode:
+      type: string
+      description: Stable machine-readable error code returned in ErrorResponse.code
+      enum:
+        - VALIDATION_ERROR
+        - BROKER_UNAVAILABLE
+        - NOT_FOUND
+        - INTERNAL_ERROR
+        - RATE_LIMITED
+    ErrorMessage:
+      type: string
+      description: Stable top-level ErrorResponse.message values
+      enum:
+        - "Validation failed"
+        - "Request is invalid"
+        - "Request body is invalid JSON or uses an unsupported value"
+        - "Event broker is unavailable"
+        - "Resource not found"
+        - "Unexpected error"
+        - "Too many requests"
+        - "Unknown alert id"
+        - "Duplicate alert rule: same configId, category, metric, window, and threshold already exist"
+        - "category must be a valid attack category"
+        - "metric must be event_count or unique_ips"
+        - "window must be 5m or 1h"
+        - "interval must be one of 1m, 5m, 1h"
+        - "limit must be at least 1"
+      x-enum-varnames:
+        - VALIDATION_FAILED
+        - REQUEST_INVALID
+        - BODY_UNREADABLE
+        - BROKER_UNAVAILABLE
+        - RESOURCE_NOT_FOUND
+        - UNEXPECTED_ERROR
+        - TOO_MANY_REQUESTS
+        - UNKNOWN_ALERT
+        - DUPLICATE_ALERT_RULE
+        - INVALID_CATEGORY
+        - INVALID_METRIC
+        - INVALID_WINDOW
+        - INVALID_INTERVAL
+        - INVALID_LIMIT
+    ErrorReason:
+      type: string
+      description: Stable ErrorDetail.reason values for known validation failures
+      enum:
+        - Request body is required
+        - Event array must not be empty
+        - Body must be a JSON object or array
+        - Invalid event JSON
+        - Request body must contain an event or a non-empty array
+        - Event must not be null
+      x-enum-varnames:
+        - BODY_REQUIRED
+        - EVENT_ARRAY_EMPTY
+        - BODY_NOT_OBJECT_OR_ARRAY
+        - INVALID_EVENT_JSON
+        - BODY_EMPTY
+        - EVENT_NULL
+    ErrorDetail:
+      type: object
+      properties:
+        index:
+          type: integer
+          format: int32
+          nullable: true
+          description: Zero-based index when validating a batch payload
+        field:
+          type: string
+          nullable: true
+        reason:
+          type: string
+          nullable: true
+          description: Prefer ErrorReason values when applicable
+    ErrorResponse:
+      type: object
+      required: [code, message, details]
+      properties:
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+        message:
+          type: string
+          description: Prefer ErrorMessage values for fixed responses
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
