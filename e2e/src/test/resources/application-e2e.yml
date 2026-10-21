@@ -1,0 +1,51 @@
+# Shared by ingest + analytics when EventFlowIT activates profile "e2e" (never "test").
+# IMPORTANT: a profile-level `wsa:` map replaces (does not deep-merge) keys from each
+# service's application.yml on the shared classpath — list every property both apps need.
+#
+# Same for spring.kafka: both jars ship application.yml; without an e2e pin the consumer
+# can keep Boot's StringDeserializer default and fail conversion → DLQ (no samples).
+spring:
+  cloud:
+    vault:
+      enabled: false
+  jmx:
+    enabled: false
+  main:
+    banner-mode: off
+  kafka:
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: com.wsa.contracts
+        spring.json.value.default.type: com.wsa.contracts.SecurityEventMessage
+        spring.json.use.type.headers: "false"
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: "false"
+      acks: all
+
+wsa:
+  kafka:
+    topic-raw: security-events.raw
+    topic-dlq: security-events.dlq
+    publish-timeout-seconds: 10
+    retry-interval-ms: 500
+    retry-attempts: 3
+    dlq-publish-timeout-seconds: 10
+  enrichment:
+    repeat-offender-window: 10m
+  rate-limit:
+    requests-per-minute: 10000
+  outbox:
+    relay-enabled: true
+    poll-interval-ms: 500
+    batch-size: 50
+    max-attempts: 5
+  adminer:
+    url: ${ADMINER_URL:http://localhost:8082/}
+    server: wsa-postgres
+    # Empty → analytics derives database name from spring.datasource.url
+    database:
