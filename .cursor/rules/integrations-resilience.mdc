@@ -1,18 +1,19 @@
 ---
-description: Kafka/DB failure handling; no HTTP between Mini WSA services
+description: Kafka/DB/Vault failure handling; no HTTP between Mini WSA services
 globs: **/client/**,**/messaging/**,**/config/**
 alwaysApply: false
 ---
 
 # External Integrations
 
-The only external systems are local Kafka and PostgreSQL.
+Local Compose infra: Kafka, PostgreSQL, and HashiCorp Vault (secrets). Vault is not a peer HTTP service between apps.
 
-- ingest-api: `EventIngestService -> KafkaEventProducer` (client/adapter). Kafka down → HTTP 503. No datasource.
+- ingest-api: HTTP accept → outbox TX → **201** (durable). `OutboxRelayService` → `KafkaEventProducer` asynchronously. Kafka down → outbox stays `PENDING` / retries → `FAILED` (HTTP accept still 201). Postgres down on accept → persistence error. Password from Vault via Spring Cloud Vault.
 - analytics-service: Kafka consumer + JDBC. Postgres down → HTTP 5xx and consumer retries/DLQ. Kafka down → consumer idle; reads of existing rows still work.
+- Vault down / AppRole failure at startup → fail fast (do not silently fall back to hardcoded passwords).
 - Services must not call each other over HTTP. Generator is a CLI client of ingest-api, not a peer service.
 
-No Redis, no payment clients, no remote APIs.
+No Redis, no payment clients, no remote paid APIs. No Eureka.
 
 # Failure scenarios
 - Duplicate POST same `eventId`: 201 twice, one stored row.

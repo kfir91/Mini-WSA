@@ -6,10 +6,11 @@ COPY analytics-service analytics-service
 COPY ingest-api/pom.xml ingest-api/pom.xml
 COPY generator/pom.xml generator/pom.xml
 COPY coverage/pom.xml coverage/pom.xml
+COPY e2e/pom.xml e2e/pom.xml
 RUN mvn -pl analytics-service -am -DskipTests package
 
 FROM eclipse-temurin:17-jre
 WORKDIR /app
-COPY --from=build /workspace/analytics-service/target/analytics-service-0.1.0-SNAPSHOT.jar app.jar
+COPY --from=build /workspace/analytics-service/target/analytics-service-0.1.0-SNAPSHOT-exec.jar app.jar
 EXPOSE 8080
 ENTRYPOINT ["java","-jar","/app.jar"]

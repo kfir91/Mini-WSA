@@ -1,0 +1,139 @@
+---
+description: UI development standards for static hub/stats pages (HTML/CSS/JS)
+globs: "**/*.html,**/static/**/*.js,**/static/**/*.css,**/*.css"
+alwaysApply: false
+---
+
+# UI Development Rules
+
+Mini WSA browser UI lives in the **`client`** Spring Boot service (`:8084`) as a **React (Vite + TypeScript)** SPA. Source: `client/frontend/`. Build output: `client/src/main/resources/static/` (generated — do not hand-edit). Same-origin relative fetches; Spring proxies `/v1/**` and `/demo/**` to analytics. Follow [`react-application.mdc`](react-application.mdc). Call the module **`client`**, not `ui`.
+
+## General Principles
+
+- Build production-quality UI, not demo/prototype UI.
+- Prefer simple, maintainable, scalable solutions over clever abstractions.
+- Follow existing project architecture, conventions, and patterns before introducing new ones.
+- Do not duplicate UI logic when an existing reusable solution exists.
+- Keep each script/section focused on a single responsibility.
+- Avoid unnecessary abstraction. Extract shared helpers only when reuse or complexity justifies it.
+- Keep business/domain logic out of the page (aggregates, scoring, enrichment stay in Java).
+
+## Page / Script Design
+
+- Prefer small named functions (`buildQuery`, `loadSummary`, `renderChart`, `showError`) over one large script blob.
+- Keep reusable helpers generic and page-specific code explicit.
+- Avoid excessive conditional nesting or deeply nested DOM logic.
+- Prefer composition of small functions over a single "god" `init` that does everything.
+- Do not create a new file for every tiny HTML fragment unless it improves readability or reuse.
+
+## State Management
+
+- Keep state as close as possible to where it is used.
+- Do not introduce global app state unless multiple unrelated parts genuinely need the same state.
+- Separate UI state, server/API state, form/filter state, and domain meaning (domain stays on the server).
+- Avoid duplicated sources of truth; derive values instead of storing redundant state.
+- Handle loading, error, empty, and success states explicitly.
+
+## API Integration
+
+- Use relative same-origin URLs to existing APIs (e.g. `/v1/stats/summary`); do not hardcode host/port.
+- Do not invent a parallel API client layer; thin `fetch` helpers are enough for static pages.
+- Do not hardcode IDs, secrets, or environment-specific values.
+- Validate and handle API responses and errors consistently (including 400 and 429).
+- Do not silently swallow errors; show meaningful user feedback.
+- Prevent duplicate submissions and unintended repeated API calls.
+
+## UX
+
+Every important user flow should consider:
+
+- Loading, empty, error, success, disabled, validation
+- Permission/access where relevant
+
+- Never leave the user without feedback after an action.
+- Destructive actions should require appropriate confirmation.
+- Preserve user input when possible after recoverable errors.
+- Avoid unnecessary popups, confirmations, and interruptions.
+
+## Forms / Filters
+
+- Validate user input consistently; show errors close to the relevant field.
+- Do not rely only on backend validation for UX.
+- Disable submit only when there is a clear reason.
+- Prevent accidental double submission.
+- Preserve entered values when validation fails.
+- Use appropriate input types and accessibility attributes.
+
+## Responsive Design
+
+- UI must work across supported screen sizes.
+- Do not rely on fixed widths unless there is a strong design reason.
+- Prefer responsive layouts; avoid horizontal scrolling on normal screens.
+- Test important screens at desktop and smaller viewport sizes.
+
+## Accessibility
+
+- Use semantic HTML.
+- Interactive elements must be keyboard accessible.
+- Buttons must be buttons; links must be links.
+- Provide accessible labels for icon-only controls.
+- Maintain visible focus states.
+- Do not communicate important information using color alone.
+- Ensure reasonable contrast.
+- Use ARIA only when semantic HTML is insufficient.
+
+## Styling
+
+- **Source of truth:** React + SCSS under `client/frontend/`. Production assets are generated into `static/` by `npm run build` / Maven frontend plugin.
+- Do not hand-maintain files under `src/main/resources/static/` (build output).
+- Follow existing hub/stats styling conventions; reuse tokens (spacing, typography, colors).
+- Do not introduce arbitrary one-off values when an existing pattern exists.
+- Avoid excessive inline styles and `!important` unless necessary.
+- Avoid deeply nested CSS selectors; keep styles scoped and predictable.
+
+## Performance
+
+- Do not optimize prematurely.
+- Avoid unnecessary API calls; debounce expensive user-driven operations when appropriate.
+- Avoid loading large libraries for functionality that can be implemented simply.
+- Vendor third-party JS only when needed (e.g. Chart.js MIT under `static/vendor/`) with a license note.
+
+## Error Handling
+
+- User-facing errors should be understandable and actionable.
+- Do not expose stack traces, internal exceptions, or sensitive implementation details.
+- Handle network failures and timeouts gracefully.
+
+## Security
+
+- Never store passwords, secrets, tokens, or sensitive credentials in frontend source.
+- Never hardcode secrets.
+- Do not treat client-side checks as the security boundary.
+- Treat all API responses and user input as untrusted.
+- Avoid exposing sensitive data in browser logs.
+
+## Code Quality
+
+- Prefer readable code over clever code; use descriptive names.
+- Avoid deeply nested conditionals, magic numbers/strings, and dead code.
+- Do not leave debugging `console.log` in production pages.
+- Do not add dependencies unless they provide meaningful value.
+
+## Changes
+
+Before implementing a UI change:
+
+1. Understand the existing static page structure and hub copies.
+2. Identify reusable helpers and existing API patterns.
+3. Check how similar screens are implemented.
+4. Implement the smallest clean solution.
+5. Verify loading/error/empty/success states, responsive behavior, and accessibility.
+6. Keep hub `index.html` copies in sync when linking new pages.
+
+## Important
+
+- Do not rewrite existing code unnecessarily.
+- Do not introduce a second SPA framework alongside React, or a parallel vanilla HTML/JS client.
+- Do not change unrelated files.
+- If the existing pattern is clear, follow it even if another approach is personally preferred.
+- If a requirement conflicts with the existing architecture, explain the tradeoff before a large structural change.

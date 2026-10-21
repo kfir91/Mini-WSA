@@ -10,11 +10,13 @@ enough existing rows (does not invent events).
 
 Requires: pip install psycopg2-binary
 Env (optional): PGHOST PGPORT PGDATABASE PGUSER PGPASSWORD
+Password: set PGPASSWORD, or keep .vault/postgres_password from scripts/vault-seed.*
 """
 from __future__ import annotations
 
 import os
 import sys
+from pathlib import Path
 
 try:
     import psycopg2
@@ -22,12 +24,28 @@ except ImportError:
     print("Install psycopg2-binary first: python -m pip install psycopg2-binary", file=sys.stderr)
     sys.exit(1)
 
+
+def _postgres_password() -> str:
+    env = os.getenv("PGPASSWORD")
+    if env:
+        return env
+    vault_file = Path(__file__).resolve().parent.parent / ".vault" / "postgres_password"
+    if vault_file.is_file():
+        return vault_file.read_text(encoding="utf-8").strip()
+    print(
+        "PGPASSWORD is not set and .vault/postgres_password is missing. "
+        "Run scripts/vault-seed.ps1 (or .sh) first, or export PGPASSWORD.",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
+
 DSN = dict(
     host=os.getenv("PGHOST", "127.0.0.1"),
     port=int(os.getenv("PGPORT", "5432")),
     dbname=os.getenv("PGDATABASE", "wsa"),
     user=os.getenv("PGUSER", "wsa"),
-    password=os.getenv("PGPASSWORD", "change-me"),
+    password=_postgres_password(),
 )
 
 # Volume inside last ~3 minutes — fires assignment/smoke, leaves BOT≥20, unique_ips≥5, XSS≥50 quiet.

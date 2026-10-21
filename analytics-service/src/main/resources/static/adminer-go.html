@@ -29,37 +29,19 @@
           throw new Error('HTTP ' + res.status);
         }
         const cfg = await res.json();
+        const url = cfg.url || 'http://localhost:8082/';
         status.innerHTML = 'Opening Adminer → <code>' +
           escapeHtml(cfg.username) + '</code>@<code>' +
           escapeHtml(cfg.server) + '</code>/<code>' +
-          escapeHtml(cfg.database) + '</code>…';
-
-        const form = document.createElement('form');
-        form.method = 'post';
-        form.action = cfg.url || 'http://localhost:8082/';
-        form.style.display = 'none';
-
-        function field(name, value) {
-          const input = document.createElement('input');
-          input.type = 'hidden';
-          input.name = name;
-          input.value = value == null ? '' : String(value);
-          form.appendChild(input);
-        }
-
-        field('auth[driver]', cfg.driver || 'pgsql');
-        field('auth[server]', cfg.server);
-        field('auth[username]', cfg.username);
-        field('auth[password]', cfg.password);
-        field('auth[db]', cfg.database);
-
-        document.body.appendChild(form);
-        form.submit();
+          escapeHtml(cfg.database) + '</code>…' +
+          '<br><small>Password comes from Vault via Compose autologin (not this page).</small>';
+        // PHP autologin plugin inside the Adminer container supplies credentials.
+        window.location.href = url;
       } catch (e) {
         status.className = 'err';
         status.textContent =
           'Could not load /adminer-go/config (' + (e && e.message ? e.message : e) + '). ' +
-          'Open this page from http://localhost:8080/adminer-go.html';
+          'Open /adminer-go.html from the analytics-service origin (see ADMINER_URL / WSA_ANALYTICS_PORT in .env).';
       }
 
       function escapeHtml(s) {

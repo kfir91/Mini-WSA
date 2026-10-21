@@ -1,0 +1,78 @@
+---
+description: React application development rules for the Mini WSA client SPA
+globs: "**/client/frontend/**/*.{ts,tsx,js,jsx,css,scss},**/client/frontend/package.json"
+alwaysApply: false
+---
+
+# React Application Development Rules
+
+## Core Principles
+
+- Build production-grade React applications, not prototypes.
+- Follow the existing project architecture, conventions, dependencies, and design system before introducing new patterns.
+- Prefer simple, readable, maintainable solutions over clever abstractions.
+- Make the smallest clean change that fully solves the requirement.
+- Do not rewrite or refactor unrelated code.
+- Keep a clear separation between UI, state, API integration, and business logic.
+
+## Architecture
+
+Prefer this separation:
+
+UI Components → Hooks / UI State → Services / API Layer → Backend (client proxy → analytics)
+
+- Components are responsible primarily for rendering and user interaction.
+- Hooks coordinate UI state and reusable client-side behavior.
+- Services/API modules handle HTTP communication.
+- Business/domain logic should not be embedded directly in JSX.
+- Do not put large API calls, data transformations, validation rules, and complex business logic inside components.
+
+## Mini WSA client specifics
+
+- Module name is **`client`** (not `ui`).
+- React source lives in `client/frontend/`; Maven/`npm run build` generates `client/src/main/resources/static/`.
+- Same-origin relative API calls (`/v1/**`, `/demo/**`); Spring Boot proxies to analytics.
+- No secrets in frontend. Charting via npm `chart.js` / `react-chartjs-2` (not vendored UMD in git).
+- Do not introduce Redux/Zustand unless local state is insufficient.
+- **Config:** hosts, ports, paths, defaults → `src/config/appConfig.ts` (optional `VITE_WSA_*` env). No hardcoded ports/URLs in components.
+- **i18n:** user-facing copy → `src/i18n/locales/*.json` via `react-i18next`. No hardcoded UI strings in JSX.
+
+## Components / Hooks / State
+
+- Functional components and hooks only; keep hooks single-responsibility.
+- Avoid unnecessary `useEffect`; prefer derived values during render.
+- Use `useMemo` / `useCallback` only when they provide meaningful benefit.
+- Keep state close to usage; separate local UI state from server/API state.
+- Handle loading, error, empty, and success states explicitly.
+
+## API Layer
+
+- Never put raw `fetch` throughout components — use `frontend/src/api/`.
+- Do not hardcode host/port; use relative URLs (Vite proxy in dev, Spring proxy in prod).
+- Handle HTTP errors consistently; never swallow errors.
+
+## TypeScript
+
+- Prefer explicit domain types; avoid `any`.
+- Type component props explicitly.
+- Keep API models in `api/types` (or similar).
+
+## Styling
+
+- SCSS under `frontend/src/styles/` with shared tokens; do not embed large style blocks in components.
+- Reuse design tokens; avoid excessive inline styles and `!important`.
+
+## Accessibility / UX
+
+- Semantic HTML; buttons are buttons; links are links; labeled form fields.
+- Keyboard accessible; visible focus; do not communicate status by color alone.
+
+## Testing / Quality
+
+- Prefer user-visible behavior tests.
+- No `console.log` in production paths.
+- Do not add dependencies for things existing tools already cover.
+
+## Definition of Done
+
+- UI and API layers separated; loading/error/empty/success handled; `static/` produced by build; proxy still works; no secrets; relevant checks pass.

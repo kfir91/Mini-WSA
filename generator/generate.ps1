@@ -1,5 +1,5 @@
 param(
-    [string] $BaseUrl = "http://localhost:8081",
+    [string] $BaseUrl = "",
     [int] $Count = 20,
     [int] $Rate = 10,
     [ValidateSet("sql", "xss", "mixed")]
@@ -14,6 +14,19 @@ if (-not (Test-Path (Join-Path $repoRoot "pom.xml"))) {
     throw "Run this script from the WSA repo (could not find parent pom.xml)."
 }
 Set-Location $repoRoot
+
+if (Test-Path -LiteralPath (Join-Path $repoRoot ".env")) {
+    Get-Content -LiteralPath (Join-Path $repoRoot ".env") | ForEach-Object {
+        if ($_ -match '^\s*#' -or $_ -notmatch '=') { return }
+        $k, $v = $_ -split '=', 2
+        Set-Item -Path "Env:$k" -Value $v.Trim()
+    }
+}
+if ([string]::IsNullOrWhiteSpace($BaseUrl)) {
+    $hostName = if ($env:WSA_HOST) { $env:WSA_HOST } else { "localhost" }
+    $ingestPort = if ($env:WSA_INGEST_PORT) { $env:WSA_INGEST_PORT } else { "8081" }
+    $BaseUrl = "http://${hostName}:${ingestPort}"
+}
 
 $argsLine = "--base-url $BaseUrl --count $Count --rate $Rate --wave $Wave --config-id $ConfigId --burst-size $BurstSize"
 Write-Host "Building generator modules (quiet)..." -ForegroundColor DarkGray
