@@ -36,6 +36,11 @@
             <artifactId>generator</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.wsa</groupId>
+            <artifactId>client</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
 
     <build>

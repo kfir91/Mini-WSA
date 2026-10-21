@@ -49,7 +49,7 @@
         <sonar.java.coveragePlugin>jacoco</sonar.java.coveragePlugin>
         <!--
           Scope analysis to hand-written trees only. OpenAPI / MapStruct output lives under
-          target/generated-sources and is therefore not scanned — no per-package exclusion list.
+          target/generated-sources and is therefore not scanned � no per-package exclusion list.
         -->
         <sonar.sources>src/main/java</sonar.sources>
         <sonar.tests>src/test/java</sonar.tests>
@@ -154,7 +154,7 @@
                             <exclude>**/GeneratorMain*</exclude>
                             <exclude>**/IngestClient*</exclude>
                             <exclude>**/ConsoleProgress*</exclude>
-                            <!-- JPA entities / enums — covered via repository + service paths -->
+                            <!-- JPA entities / enums � covered via repository + service paths -->
                             <exclude>com/wsa/ingest/entity/**</exclude>
                             <exclude>com/wsa/ingest/config/OutboxMetricsConfig*</exclude>
                             <exclude>com/wsa/client/config/ClientProperties*</exclude>
@@ -218,7 +218,7 @@
                             <goal>check</goal>
                         </goals>
                         <configuration>
-                            <!-- Per-module ≥95% ⇒ weighted aggregate ≥95%. -->
+                            <!-- Per-module =95% ? weighted aggregate =95%. -->
                             <rules>
                                 <rule>
                                     <element>BUNDLE</element>
