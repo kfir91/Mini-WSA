@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -24,6 +24,7 @@
         <module>analytics-service</module>
         <module>generator</module>
         <module>coverage</module>
+        <module>e2e</module>
     </modules>
 
     <properties>
@@ -37,6 +38,7 @@
         <sonar-maven-plugin.version>4.0.0.4121</sonar-maven-plugin.version>
         <jacoco.line.minimum>0.95</jacoco.line.minimum>
         <jacoco.branch.minimum>0.95</jacoco.branch.minimum>
+        <spring-cloud.version>2023.0.3</spring-cloud.version>
 
         <!-- Local SonarQube Community only (Docker :9000). No SonarCloud. -->
         <sonar.projectKey>wsa</sonar.projectKey>
@@ -69,6 +71,13 @@
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
             <dependency>
                 <groupId>org.mapstruct</groupId>
                 <artifactId>mapstruct</artifactId>
@@ -153,12 +162,28 @@
                     <artifactId>sonar-maven-plugin</artifactId>
                     <version>${sonar-maven-plugin.version}</version>
                 </plugin>
+                <plugin>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                    <configuration>
+                        <classifier>exec</classifier>
+                    </configuration>
+                </plugin>
             </plugins>
         </pluginManagement>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <environmentVariables>
+                        <VAULT_ENABLED>false</VAULT_ENABLED>
+                    </environmentVariables>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.jacoco</groupId>
