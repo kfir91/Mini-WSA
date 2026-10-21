@@ -2,11 +2,15 @@ package com.wsa.ingest.controller;
 
 import com.wsa.contracts.SecurityEventMessage;
 import com.wsa.ingest.client.KafkaEventProducer;
+import com.wsa.ingest.entity.IngestOutboxEntity;
+import com.wsa.ingest.entity.OutboxStatus;
 import com.wsa.ingest.exception.EventPublishException;
+import com.wsa.ingest.repository.IngestOutboxRepository;
+import com.wsa.ingest.service.OutboxRelayService;
 import com.wsa.ingest.support.ClasspathJson;
 import com.wsa.ingest.support.EventFixtures;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -16,16 +20,25 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+        "spring.datasource.url=jdbc:h2:mem:wsa_ingest_e2e;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH",
+        "spring.datasource.username=sa",
+        "spring.datasource.password=",
+        "spring.datasource.driver-class-name=org.h2.Driver"
+})
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class EventIngestApiE2ETest {
@@ -33,51 +46,70 @@ class EventIngestApiE2ETest {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private IngestOutboxRepository outboxRepository;
+
+    @Autowired
+    private OutboxRelayService outboxRelayService;
+
     @MockBean
     private KafkaEventProducer kafkaEventProducer;
 
-    /** Prevents real KafkaTemplate wiring when the producer bean is replaced. */
     @MockBean
     private KafkaTemplate<String, SecurityEventMessage> kafkaTemplate;
 
+    @BeforeEach
+    void clearOutbox() {
+        outboxRepository.deleteAll();
+    }
+
     @Test
-    void singleValidEventReturns201AndPublishesWithReceivedAt() throws Exception {
+    void singleValidEventReturns201AndWritesPendingOutbox() throws Exception {
         mockMvc.perform(post("/v1/events/ingest")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(EventFixtures.validJson()))
                 .andExpect(status().isCreated());
 
-        ArgumentCaptor<SecurityEventMessage> captor = ArgumentCaptor.forClass(SecurityEventMessage.class);
-        verify(kafkaEventProducer).publish(captor.capture());
-        assertNotNull(captor.getValue().getReceivedAt());
+        verify(kafkaEventProducer, never()).publish(any());
+        List<IngestOutboxEntity> rows = outboxRepository.findAll();
+        assertEquals(1, rows.size());
+        assertEquals(OutboxStatus.PENDING, rows.get(0).getStatus());
+        assertTrue(rows.get(0).getPayload().contains("receivedAt")
+                || rows.get(0).getPayload().contains("received_at")
+                || rows.get(0).getPayload().contains("evt-"));
     }
 
     @Test
-    void arrayReturns201AndPublishesEach() throws Exception {
+    void arrayReturns201AndWritesEachOutboxRow() throws Exception {
         mockMvc.perform(post("/v1/events/ingest")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(ClasspathJson.load("fixtures/security-event-batch.json")))
                 .andExpect(status().isCreated());
 
-        verify(kafkaEventProducer, times(2)).publish(any(SecurityEventMessage.class));
+        verify(kafkaEventProducer, never()).publish(any());
+        assertEquals(2, outboxRepository.count());
     }
 
     @Test
-    void emptyArrayReturns400() throws Exception {
+    void emptyArrayReturns400AndNoOutboxRows() throws Exception {
         mockMvc.perform(post("/v1/events/ingest")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(ClasspathJson.load("fixtures/empty-array.json")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+        assertEquals(0, outboxRepository.count());
     }
 
     @Test
-    void invalidEnumReturns400() throws Exception {
+    void invalidEnumReturns400AndNoOutboxRows() throws Exception {
         mockMvc.perform(post("/v1/events/ingest")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(ClasspathJson.load("fixtures/security-event-invalid-action.json")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+
+        assertEquals(0, outboxRepository.count());
     }
 
     @Test
@@ -90,15 +122,47 @@ class EventIngestApiE2ETest {
     }
 
     @Test
-    void brokerFailureReturns503() throws Exception {
-        doThrow(new EventPublishException("down", new RuntimeException("broker")))
-                .when(kafkaEventProducer).publish(any(SecurityEventMessage.class));
-
+    void rePostSameEventIdIsIdempotent() throws Exception {
         mockMvc.perform(post("/v1/events/ingest")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(EventFixtures.validJson()))
-                .andExpect(status().isServiceUnavailable())
-                .andExpect(jsonPath("$.code").value("BROKER_UNAVAILABLE"));
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/v1/events/ingest")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(EventFixtures.validJson()))
+                .andExpect(status().isCreated());
+
+        assertEquals(1, outboxRepository.count());
+    }
+
+    @Test
+    void relayPublishesPendingRows() throws Exception {
+        mockMvc.perform(post("/v1/events/ingest")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(EventFixtures.validJson()))
+                .andExpect(status().isCreated());
+
+        outboxRelayService.relayBatch();
+
+        verify(kafkaEventProducer, times(1)).publish(any(SecurityEventMessage.class));
+        assertEquals(OutboxStatus.PUBLISHED, outboxRepository.findAll().get(0).getStatus());
+    }
+
+    @Test
+    void relayKeepsPendingWhenBrokerFails() throws Exception {
+        mockMvc.perform(post("/v1/events/ingest")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(EventFixtures.validJson()))
+                .andExpect(status().isCreated());
+
+        doThrow(new EventPublishException("down", new RuntimeException("broker")))
+                .when(kafkaEventProducer).publish(any());
+
+        outboxRelayService.relayBatch();
+
+        IngestOutboxEntity row = outboxRepository.findAll().get(0);
+        assertEquals(OutboxStatus.PENDING, row.getStatus());
+        assertEquals(1, row.getAttemptCount());
     }
 
     @Test

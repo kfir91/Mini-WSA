@@ -4,22 +4,22 @@ Snapshot of the **last local quality run** for WSA. Regenerate after meaningful 
 
 | Field | Value |
 |---|---|
-| **Run date** | 2026-10-21 18:00 +03:00 |
-| **Host** | Windows local — ASCII build copy `C:\Temp\wsa-build` (synced from repo; Hebrew path breaks OpenAPI codegen) |
+| **Run date** | 2026-10-21 19:07 +03:00 |
+| **Host** | Windows local — ASCII build copy `C:\Temp\wsa-verify` (synced from repo; Hebrew path breaks OpenAPI codegen) |
 | **JDK / Maven** | Java 17.0.12 · Maven (reactor `mvn clean verify`) |
 | **Command (coverage)** | `mvn clean verify` |
-| **Command (Sonar)** | *not run* — Docker Desktop unable to start (`docker info` / daemon) |
-| **Compose infra** | *not verified* — same Docker Desktop failure (legacy `DOCKER_HOST=tcp://192.168.99.100:2376` was cleared; Desktop still failed to start) |
+| **Command (Sonar)** | *not run* |
+| **Compose infra** | *not part of this snapshot* |
 | **Gate** | JaCoCo `check` ≥ **95%** LINE and BRANCH per module |
 | **Result** | `mvn clean verify` **PASSED** |
-| **Tests** | **121** run · **0** failures · **0** errors · **0** skipped |
+| **Tests** | **145** run · **0** failures · **0** errors · **0** skipped |
 
 HTML reports (after `mvn verify`):
 
 - Aggregate: `coverage/target/site/jacoco-aggregate/index.html`
 - Per module: `<module>/target/site/jacoco/index.html`
 
-Counters below are **after configured excludes** (OpenAPI/MapStruct generated classes, `*Application*`, CLI I/O, `KafkaConsumerConfig`, Postgres-only timeseries query). Compare reviewer tooling to these excludes before claiming a gap.
+Counters below are **after configured excludes** (OpenAPI/MapStruct generated classes, `*Application*`, CLI I/O, `KafkaConsumerConfig`, Postgres-only timeseries query, ingest JPA entity / `OutboxMetricsConfig`). Compare reviewer tooling to these excludes before claiming a gap.
 
 ---
 
@@ -27,12 +27,12 @@ Counters below are **after configured excludes** (OpenAPI/MapStruct generated cl
 
 | Kind | Classes (examples) | Count |
 |---|---|---:|
-| E2E / API (MockMvc + Spring) | `EventIngestApiE2ETest`, `AnalyticsApiE2ETest`, `AnalyticsRateLimitE2ETest` | 32 |
+| E2E / API (MockMvc + Spring) | `EventIngestApiE2ETest`, `AnalyticsApiE2ETest`, `AnalyticsRateLimitE2ETest` | ~32 |
 | Application context | `IngestApiApplicationTest`, `AnalyticsServiceApplicationTest` | 2 |
-| Unit / focused | services, managers, messaging, generator CLI, contracts | 87 |
-| **Total** | | **121** |
+| Unit / focused | outbox accept/relay, DLQ, services, managers, generator CLI, contracts | ~111 |
+| **Total** | | **145** |
 
-E2E coverage paths exercised: ingest validate/Kafka publish errors, analytics summary/samples/timeseries/alerts, rate limit 429, Adminer-go config, demo alert fire.
+E2E coverage paths exercised: ingest outbox accept / validation / idempotent duplicate / relay publish, analytics summary/samples/timeseries/alerts, rate limit 429, Adminer-go config, demo alert fire.
 
 ---
 
@@ -40,11 +40,11 @@ E2E coverage paths exercised: ingest validate/Kafka publish errors, analytics su
 
 | Module | LINE | BRANCH | INSTRUCTION | METHOD | Gate |
 |---|---:|---:|---:|---:|---|
-| ingest-api | **100.0%** (84/84) | **100.0%** (32/32) | 100.0% (363/363) | 100.0% (20/20) | PASS |
-| analytics-service | **99.0%** (585/591) | **96.7%** (174/180) | 94.2% (3276/3478) | 87.0% (227/261) | PASS |
+| ingest-api | **100.0%** (159/159) | **100.0%** (60/60) | 100.0% (692/692) | 100.0% (36/36) | PASS |
+| analytics-service | **99.0%** (592/598) | **96.7%** (174/180) | 94.3% (3323/3525) | 87.0% (227/261) | PASS |
 | generator | **100.0%** (117/117) | **97.5%** (39/40) | 100.0% (537/537) | 100.0% (33/33) | PASS |
 | contracts | *skipped* (`jacoco.skip=true` — generated models only) | | | | n/a |
-| **aggregate** (`coverage`) | **99.2%** (786/792) | **97.2%** (245/252) | 95.4% (4176/4378) | 89.2% (280/314) | PASS* |
+| **aggregate** (`coverage`) | **99.3%** (868/874) | **97.5%** (273/280) | 95.8% (4552/4754) | 89.7% (296/330) | PASS* |
 
 \*Aggregate is report-only; the Maven gate is enforced per code module (≥95% LINE and BRANCH each).
 
@@ -52,10 +52,10 @@ E2E coverage paths exercised: ingest validate/Kafka publish errors, analytics su
 
 | Counter | Covered | Missed | Total | Ratio |
 |---|---:|---:|---:|---:|
-| LINE | 786 | 6 | 792 | 99.2% |
-| BRANCH | 245 | 7 | 252 | 97.2% |
-| INSTRUCTION | 4176 | 202 | 4378 | 95.4% |
-| METHOD | 280 | 34 | 314 | 89.2% |
+| LINE | 868 | 6 | 874 | 99.3% |
+| BRANCH | 273 | 7 | 280 | 97.5% |
+| INSTRUCTION | 4552 | 202 | 4754 | 95.8% |
+| METHOD | 296 | 34 | 330 | 89.7% |
 
 ### Remaining misses (acceptable under gate)
 
@@ -102,7 +102,7 @@ E2E coverage paths exercised: ingest validate/Kafka publish errors, analytics su
 |---|---|
 | **Host** | `http://localhost:9000` (Compose profile `sonar`) |
 | **Project key** | `wsa` |
-| **Last analysis** | **Not available** — Docker Desktop unable to start during this snapshot |
+| **Last analysis** | **Not available** — not run in this snapshot |
 | **Bugs** | — |
 | **Vulnerabilities** | — |
 | **Code smells** | — |

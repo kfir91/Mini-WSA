@@ -1,4 +1,18 @@
 spring:
+  datasource:
+    url: jdbc:h2:mem:wsa_ingest;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  flyway:
+    enabled: true
+    table: ingest_flyway_schema_history
   autoconfigure:
     exclude: org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
 
@@ -6,3 +20,8 @@ wsa:
   kafka:
     topic-raw: security-events.raw
     publish-timeout-seconds: 2
+  outbox:
+    relay-enabled: false
+    poll-interval-ms: 60000
+    batch-size: 50
+    max-attempts: 5

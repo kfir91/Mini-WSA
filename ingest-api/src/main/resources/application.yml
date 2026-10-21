@@ -4,6 +4,18 @@ server:
 spring:
   application:
     name: ingest-api
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/wsa}
+    username: ${SPRING_DATASOURCE_USERNAME:wsa}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+    # Separate history from analytics-service migrations on the same database.
+    table: ingest_flyway_schema_history
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
@@ -17,10 +29,13 @@ wsa:
   kafka:
     topic-raw: ${KAFKA_TOPIC_RAW:security-events.raw}
     publish-timeout-seconds: ${KAFKA_PUBLISH_TIMEOUT_SECONDS:10}
+  outbox:
+    relay-enabled: ${OUTBOX_RELAY_ENABLED:true}
+    poll-interval-ms: ${OUTBOX_POLL_INTERVAL_MS:1000}
+    batch-size: ${OUTBOX_BATCH_SIZE:50}
+    max-attempts: ${OUTBOX_MAX_ATTEMPTS:5}
 
 springdoc:
-  # api-docs must stay enabled or swagger-ui itself returns 404 (springdoc 2.x).
-  # The UI loads our YAML via swagger-ui.url — not the scanned annotation docs.
   api-docs:
     enabled: true
   swagger-ui:
@@ -28,12 +43,11 @@ springdoc:
     url: /open-api/ingest-api.yaml
     disable-swagger-default-url: true
 
-
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics
   endpoint:
     health:
       probes:
@@ -41,4 +55,3 @@ management:
   health:
     kafka:
       enabled: true
-

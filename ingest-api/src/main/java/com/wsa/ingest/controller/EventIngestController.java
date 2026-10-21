@@ -19,7 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Thin HTTP adapter for event ingest; publishes to Kafka via {@link EventIngestService}.
+ * Thin HTTP adapter for event ingest; durably accepts into the outbox via {@link EventIngestService}.
  */
 @RestController
 @RequiredArgsConstructor

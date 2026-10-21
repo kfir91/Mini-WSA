@@ -25,3 +25,4 @@ wsa:
     topic-dlq: security-events.dlq
     retry-interval-ms: 100
     retry-attempts: 1
+    dlq-publish-timeout-seconds: 2
