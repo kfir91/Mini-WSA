@@ -1,11 +1,71 @@
+# Build
 target/
+**/bin/
+out/
+*.class
+*.jar
+*.war
+*.ear
+hs_err_pid*
+replay_pid*
+*.tsbuildinfo
+
+# Local secrets / env (keep .env.example)
 .env
+.env.*
+!.env.example
+.vault/
+.vault/**
+
+# IDE / editor
 .idea/
 *.iml
 .classpath
 .project
 .settings/
-*.log
+.factorypath
 .vscode/
-analytics-service/bin/*
-ingest-api/bin/*
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+ehthumbs.db
+
+# Logs / temp / caches
+*.log
+*.tmp
+*.bak
+*.orig
+.sass-cache/
+*.scssc
+
+# Generated React SPA (yarn build / Maven frontend-maven-plugin)
+client/src/main/resources/static/
+client/frontend/dist/
+client/frontend/dist-ssr/
+client/frontend/.vite/
+client/frontend/coverage/
+
+# Tooling
+node_modules/
+client/frontend/node_modules/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/install-state.gz
+.pnp.*
+__pycache__/
+*.py[cod]
+.Python
+.pytest_cache/
+.nyc_output/
+.tox/
+
+# Maven / coverage noise outside target (defensive)
+.flattened-pom.xml
+dependency-reduced-pom.xml
+**/jacoco.exec
+*.dump
+*.dumpstream

@@ -11,8 +11,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Exposes Adminer connection settings from {@code spring.datasource.*} / {@code wsa.adminer.*}
- * so the static hub page can POST into Adminer (no HTML in Java).
+ * Exposes Adminer connection settings (non-secret) from {@code spring.datasource.*} /
+ * {@code wsa.adminer.*} so the client React hub can open Adminer. The DB password is not
+ * returned — Adminer's Compose PHP autologin supplies it inside the container.
  */
 @RestController
 public class AdminerGoController {
@@ -24,19 +25,16 @@ public class AdminerGoController {
     private final String adminerUrl;
     private final String server;
     private final String username;
-    private final String password;
     private final String database;
 
     public AdminerGoController(
             @Value("${wsa.adminer.url}") String adminerUrl,
             @Value("${wsa.adminer.server:}") String serverOverride,
             @Value("${spring.datasource.username}") String username,
-            @Value("${spring.datasource.password:}") String password,
             @Value("${spring.datasource.url}") String jdbcUrl,
             @Value("${wsa.adminer.database:}") String databaseOverride) {
         this.adminerUrl = adminerUrl;
         this.username = username;
-        this.password = password == null ? "" : password;
         this.database = (databaseOverride == null || databaseOverride.isBlank())
                 ? databaseFromJdbcUrl(jdbcUrl)
                 : databaseOverride;
@@ -51,7 +49,6 @@ public class AdminerGoController {
         cfg.put("url", adminerUrl);
         cfg.put("server", server);
         cfg.put("username", username);
-        cfg.put("password", password);
         cfg.put("database", database);
         cfg.put("driver", "pgsql");
         return cfg;
@@ -78,11 +75,9 @@ public class AdminerGoController {
         if (slash < 0 || slash == jdbcUrl.length() - 1) {
             return "wsa";
         }
-        String db = jdbcUrl.substring(slash + 1);
-        int query = db.indexOf('?');
-        if (query >= 0) {
-            db = db.substring(0, query);
-        }
+        String rest = jdbcUrl.substring(slash + 1);
+        int q = rest.indexOf('?');
+        String db = q >= 0 ? rest.substring(0, q) : rest;
         return db.isBlank() ? "wsa" : db;
     }
 }

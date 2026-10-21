@@ -4,16 +4,39 @@ server:
 spring:
   application:
     name: analytics-service
+  config:
+    import: "optional:vault://"
+  cloud:
+    vault:
+      enabled: ${VAULT_ENABLED:true}
+      uri: ${VAULT_URI:http://localhost:8200}
+      authentication: APPROLE
+      app-role:
+        role-id: ${VAULT_ROLE_ID:}
+        secret-id: ${VAULT_SECRET_ID:}
+      kv:
+        enabled: true
+        backend: secret
+        backend-version: 2
+        # Exact KV path secret/data/wsa/local (do not use spring.application.name as Vault context).
+        application-name: wsa/local
+        default-context: wsa/local
+      config:
+        lifecycle:
+          enabled: false
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/wsa}
     username: ${SPRING_DATASOURCE_USERNAME:wsa}
-    password: ${SPRING_DATASOURCE_PASSWORD}
+    # Password: Vault KV key spring.datasource.password (see scripts/vault-seed.*).
+    # Tests disable Vault and set an empty password via application-test.yml / @SpringBootTest.
   jpa:
     hibernate:
       ddl-auto: validate
     open-in-view: false
   flyway:
     enabled: true
+    # Separate locations from ingest (same DB; shared classpath in e2e IT).
+    locations: classpath:db/migration/analytics
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
@@ -40,7 +63,7 @@ wsa:
   rate-limit:
     requests-per-minute: ${RATE_LIMIT_PER_MINUTE:100}
   adminer:
-    # Browser URL for Adminer (host port). User/password/db = spring.datasource.*
+    # Browser URL for Adminer (host port). Autologin uses Compose-injected secrets (not this API).
     url: ${ADMINER_URL:http://localhost:8082/}
     # Hostname Adminer uses inside Docker/SSH (Compose service/container DNS).
     # Required when JVM JDBC host is 127.0.0.1 via a published port / tunnel.
@@ -70,4 +93,3 @@ management:
     health:
       probes:
         enabled: true
-
