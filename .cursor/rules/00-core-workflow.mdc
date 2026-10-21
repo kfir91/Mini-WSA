@@ -26,7 +26,12 @@ Search for existing services, managers, repositories, clients, mappers, utilitie
 ## 5. Test
 Add or update unit, integration, and API tests as appropriate.
 
-## 6. Review checklist (verify before finishing)
+## 6. README and clarity
+- Update `README.md` when architecture, run steps, ports, infra, or user-facing features change (Architecture diagram/subsections, Try it, Local hub, etc.).
+- Do not leave the README describing a Future idea that was already implemented.
+- Finish only when the change is **code-reviewed** (self-review against this checklist) and the result is **clear**: readable names, obvious ownership, no leftover debug noise, docs match the code.
+
+## 7. Review checklist (verify before finishing)
 - [ ] Clear separation of responsibilities
 - [ ] No business logic in controllers or repositories
 - [ ] DTOs separated from persistence entities where appropriate
@@ -41,6 +46,8 @@ Add or update unit, integration, and API tests as appropriate.
 - [ ] Existing conventions respected
 - [ ] No unnecessary abstractions
 - [ ] No unrelated changes
+- [ ] README updated when behavior/architecture/ops changed
+- [ ] Code self-reviewed and clear for the next engineer
 
 ## Architecture Decision Principle
 The goal is NOT to maximize layers. The goal is clear boundaries, correct responsibilities, maintainability, reliability, scalability, observability, and security.
