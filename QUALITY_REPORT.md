@@ -10,6 +10,7 @@ Snapshot of the **last local quality run** for WSA. Regenerate after meaningful 
 | **Command (coverage)** | `mvn clean verify` |
 | **Command (Sonar)** | *not run* |
 | **Compose infra** | *not part of this snapshot* |
+| **Pipeline E2E** | Module `e2e` / `EventFlowIT` — opt-in only: `mvn -pl e2e -am verify -Pe2e` (Docker Desktop + Testcontainers; not in default gate). Asserts ingest → outbox PUBLISHED → samples/summary. |
 | **Gate** | JaCoCo `check` ≥ **95%** LINE and BRANCH per module |
 | **Result** | `mvn clean verify` **PASSED** |
 | **Tests** | **145** run · **0** failures · **0** errors · **0** skipped |
@@ -115,17 +116,26 @@ E2E coverage paths exercised: ingest outbox accept / validation / idempotent dup
 
 ```bash
 docker compose --profile sonar up -d
-# Wait until http://localhost:9000 is up; login admin/admin, set password, create token → .env SONAR_TOKEN=
+# Wait until http://localhost:9000 is up; login admin/admin, set password, create token
+# → store in .vault/sonar_token and re-run scripts/vault-seed.* (not plaintext .env)
 ```
 
 ```powershell
 # Windows — clear stale docker-machine host first if set:
 # Remove-Item Env:DOCKER_HOST,Env:DOCKER_TLS_VERIFY,Env:DOCKER_CERT_PATH -ErrorAction SilentlyContinue
+$token = if ($env:VAULT_DEV_ROOT_TOKEN_ID) { $env:VAULT_DEV_ROOT_TOKEN_ID } else { "wsa-dev-root" }
+$env:SONAR_TOKEN = (docker compose --env-file .env exec -T `
+  -e VAULT_ADDR=http://127.0.0.1:8200 -e "VAULT_TOKEN=$token" `
+  vault vault kv get -field=sonar_token secret/wsa/local).Trim()
 mvn verify sonar:sonar "-Dsonar.token=$env:SONAR_TOKEN"
 ```
 
 ```bash
 # macOS / Linux
+token="${VAULT_DEV_ROOT_TOKEN_ID:-wsa-dev-root}"
+export SONAR_TOKEN="$(docker compose --env-file .env exec -T \
+  -e VAULT_ADDR=http://127.0.0.1:8200 -e "VAULT_TOKEN=${token}" \
+  vault vault kv get -field=sonar_token secret/wsa/local | tr -d '\r\n')"
 mvn verify sonar:sonar "-Dsonar.token=$SONAR_TOKEN"
 ```
 

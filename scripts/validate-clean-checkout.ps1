@@ -34,26 +34,48 @@ if (-not (Test-Path $envFile)) {
     Write-Host "  Found .env" -ForegroundColor Green
 }
 
+function Import-DotEnv([string] $Path) {
+    if (-not (Test-Path -LiteralPath $Path)) { return }
+    Get-Content $Path | ForEach-Object {
+        if ($_ -match '^\s*#' -or $_ -notmatch '=') { return }
+        $k, $v = $_ -split '=', 2
+        Set-Item -Path "Env:$k" -Value $v.Trim()
+    }
+}
+Import-DotEnv $envFile
+
 if (-not $SkipCompose) {
-    Write-Step "Starting Compose infra (postgres + kafka + adminer + kafka-ui)"
+    Write-Step "Seeding HashiCorp Vault"
+    & (Join-Path $PSScriptRoot "vault-seed.ps1") -RepoRoot $repoRoot
+    if ($LASTEXITCODE -ne 0) { throw "vault-seed.ps1 failed." }
+    Import-DotEnv (Join-Path $repoRoot ".vault\approle.env")
+    $passFile = Join-Path $repoRoot ".vault\postgres_password"
+    if (Test-Path $passFile) {
+        $pg = (Get-Content -LiteralPath $passFile -Raw).Trim()
+        $env:POSTGRES_PASSWORD = $pg
+        $env:ADMINER_PASSWORD = $pg
+    }
+
+    Write-Step "Starting Compose infra (vault + postgres + kafka + adminer + kafka-ui)"
     docker compose --env-file .env up -d
     if ($LASTEXITCODE -ne 0) {
         throw "docker compose up failed (is Docker running? Desktop / OrbStack / Colima)."
     }
 
-    Write-Step "Waiting for Postgres and Kafka healthy"
+    Write-Step "Waiting for Vault, Postgres, and Kafka healthy"
     $deadline = (Get-Date).AddMinutes(3)
     do {
         $raw = docker compose --env-file .env ps 2>&1 | Out-String
+        $vaultOk = $raw -match "(?i)vault[^\r\n]*healthy"
         $postgresOk = $raw -match "(?i)postgres[^\r\n]*healthy"
         $kafkaOk = $raw -match "(?i)kafka[^\r\n]*healthy"
-        if ($postgresOk -and $kafkaOk) {
+        if ($vaultOk -and $postgresOk -and $kafkaOk) {
             Write-Host "  Infra looks healthy" -ForegroundColor Green
             break
         }
         if ((Get-Date) -ge $deadline) {
             Write-Host $raw
-            throw "Timed out waiting for healthy postgres/kafka."
+            throw "Timed out waiting for healthy vault/postgres/kafka."
         }
         Start-Sleep -Seconds 5
     } while ($true)
@@ -87,7 +109,7 @@ if (-not $SkipDockerBuilds) {
 
 Write-Host ""
 Write-Host "OK - clean-checkout checks passed." -ForegroundColor Green
-Write-Host "Start apps (two terminals; load .env first — see README):"
+Write-Host "Start apps (two terminals; load .env + .vault/approle.env — see README):"
 Write-Host "  mvn -pl ingest-api spring-boot:run"
 Write-Host "  mvn -pl analytics-service spring-boot:run"
 Write-Host "Do NOT use -am with spring-boot:run (parent POM has no main class)."

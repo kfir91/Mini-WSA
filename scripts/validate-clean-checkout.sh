@@ -38,24 +38,41 @@ else
   echo "  Found .env"
 fi
 
+set -a
+# shellcheck disable=SC1091
+source .env
+set +a
+
 if [[ "${SKIP_COMPOSE}" -eq 0 ]]; then
-  step "Starting Compose infra (postgres + kafka + adminer + kafka-ui)"
+  step "Seeding HashiCorp Vault"
+  bash "${SCRIPT_DIR}/vault-seed.sh"
+  set -a
+  # shellcheck disable=SC1091
+  source .vault/approle.env
+  POSTGRES_PASSWORD="$(tr -d '\r\n' <.vault/postgres_password)"
+  export POSTGRES_PASSWORD
+  export ADMINER_PASSWORD="${POSTGRES_PASSWORD}"
+  set +a
+
+  step "Starting Compose infra (vault + postgres + kafka + adminer + kafka-ui)"
   if ! docker compose --env-file .env up -d; then
     echo "docker compose up failed (is Docker running? Desktop / OrbStack / Colima)." >&2
     exit 1
   fi
 
-  step "Waiting for Postgres and Kafka healthy"
+  step "Waiting for Vault, Postgres, and Kafka healthy"
   deadline=$((SECONDS + 180))
   while true; do
     raw="$(docker compose --env-file .env ps 2>&1 || true)"
-    if echo "${raw}" | grep -qiE 'postgres.*healthy' && echo "${raw}" | grep -qiE 'kafka.*healthy'; then
+    if echo "${raw}" | grep -qiE 'vault.*healthy' \
+      && echo "${raw}" | grep -qiE 'postgres.*healthy' \
+      && echo "${raw}" | grep -qiE 'kafka.*healthy'; then
       echo "  Infra looks healthy"
       break
     fi
     if (( SECONDS >= deadline )); then
       echo "${raw}"
-      echo "Timed out waiting for healthy postgres/kafka." >&2
+      echo "Timed out waiting for healthy vault/postgres/kafka." >&2
       exit 1
     fi
     sleep 5
@@ -80,7 +97,7 @@ fi
 
 echo ""
 echo "OK - clean-checkout checks passed."
-echo "Start apps (two terminals; load .env first — see README):"
+echo "Start apps (two terminals; load .env + .vault/approle.env — see README):"
 echo "  mvn -pl ingest-api spring-boot:run"
 echo "  mvn -pl analytics-service spring-boot:run"
 echo "Do NOT use -am with spring-boot:run (parent POM has no main class)."
