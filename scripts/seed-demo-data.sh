@@ -134,8 +134,8 @@ else
 fi
 
 if [[ "${SKIP_ALERTS}" -eq 0 ]]; then
-  step "Creating example alert rules from demo/alert-rules.json"
-  RULES_PATH="${REPO_ROOT}/demo/alert-rules.json"
+  step "Creating example alert rules from scripts/alert-rules.json"
+  RULES_PATH="${REPO_ROOT}/scripts/alert-rules.json"
   if [[ ! -f "${RULES_PATH}" ]]; then
     echo "Missing ${RULES_PATH}" >&2
     exit 1

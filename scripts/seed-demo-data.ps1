@@ -7,7 +7,7 @@
 
   1. Posts synthetic events via the generator (ingest → Kafka → analytics → Postgres)
   2. Waits until events appear in Postgres
-  3. Creates every rule in demo/alert-rules.json (skips duplicates)
+  3. Creates every rule in scripts/alert-rules.json (skips duplicates)
   4. Calls POST /demo/alerts/fire so assignment/smoke rules show FIRING
 
 .EXAMPLE
@@ -145,8 +145,8 @@ if (-not $SkipGenerator) {
 }
 
 if (-not $SkipAlerts) {
-    Write-Step "Creating example alert rules from demo/alert-rules.json"
-    $rulesPath = Join-Path $repoRoot "demo" "alert-rules.json"
+    Write-Step "Creating example alert rules from scripts/alert-rules.json"
+    $rulesPath = Join-Path $repoRoot "scripts" "alert-rules.json"
     if (-not (Test-Path $rulesPath)) {
         throw "Missing $rulesPath"
     }
