@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   defineAlert,
@@ -25,7 +25,7 @@ export function useAlertsBoard() {
 
   const firingCount = useMemo(() => rows.filter((r) => r.firing).length, [rows]);
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     setLog(t('messages.loadingEvaluate', { path: appConfig.paths.alertsEvaluate }));
     try {
       const next = await evaluateAlerts();
@@ -34,7 +34,11 @@ export function useAlertsBoard() {
     } catch (err) {
       setLog(err instanceof Error ? err.message : t('common.evaluateFailed'));
     }
-  }
+  }, [t]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
 
   async function seedAll() {
     setLog(t('messages.creatingRules', { count: demoRules.length }));
