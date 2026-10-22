@@ -21,3 +21,6 @@ HTTP status, request validation, response structure, authorization, error handli
 - Do not mock everything. Use real infrastructure in integration tests where it gives meaningful confidence.
 - Verify behavior, not implementation details.
 - Cover failure paths and idempotency, not only the happy path.
+
+## Cross-service pipeline ITs
+Module `e2e` (Failsafe profile `-Pe2e`, Docker + Testcontainers): `EventFlowIT`, `ClientProxyPipelineIT`, `DlqPathIT`, `BacklogLagIT`. Not part of the default JaCoCo gate. Unit tests still cover DLQ publish, outbox FAILED, client proxy MockMvc, and Kafka error-handler wiring.

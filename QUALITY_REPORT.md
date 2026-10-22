@@ -10,7 +10,7 @@ Snapshot of the **last local quality run** for WSA. Regenerate after meaningful 
 | **Command (coverage)** | `mvn clean verify` |
 | **Command (Sonar)** | *not run* |
 | **Compose infra** | *not part of this snapshot* |
-| **Pipeline E2E** | Module `e2e` / `EventFlowIT` — opt-in only: `mvn -pl e2e -am verify -Pe2e` (Docker Desktop + Testcontainers; not in default gate). Asserts ingest → outbox PUBLISHED → samples/summary. |
+| **Pipeline E2E** | Module `e2e` — opt-in only: `mvn -pl e2e -am verify -Pe2e` (Docker Desktop + Testcontainers; not in default gate). Suites: `EventFlowIT`, `ClientProxyPipelineIT`, `DlqPathIT`, `BacklogLagIT` (happy path, client BFF, DLQ + outbox FAILED, multi-event lag drain). |
 | **Gate** | JaCoCo `check` ≥ **95%** LINE and BRANCH per module |
 | **Result** | `mvn clean verify` **PASSED** |
 | **Tests** | **145** run · **0** failures · **0** errors · **0** skipped |
@@ -20,7 +20,7 @@ HTML reports (after `mvn verify`):
 - Aggregate: `coverage/target/site/jacoco-aggregate/index.html`
 - Per module: `<module>/target/site/jacoco/index.html`
 
-Counters below are **after configured excludes** (OpenAPI/MapStruct generated classes, `*Application*`, CLI I/O, `KafkaConsumerConfig`, Postgres-only timeseries query, ingest JPA entity / `OutboxMetricsConfig`). Compare reviewer tooling to these excludes before claiming a gap.
+Counters below are **after configured excludes** (OpenAPI/MapStruct generated classes, `*Application*`, CLI I/O, Postgres-only timeseries query, ingest JPA entity / `OutboxMetricsConfig`). Compare reviewer tooling to these excludes before claiming a gap. `KafkaConsumerConfig` is covered by unit tests (no longer excluded).
 
 ---
 
