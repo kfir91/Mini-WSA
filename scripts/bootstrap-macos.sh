@@ -11,12 +11,14 @@
 #   --full-verify    mvn clean verify (default: install -DskipTests)
 #   --skip-apps      Stop after build (do not start Spring apps)
 #   --skip-compose   Skip docker compose up
+#   --reset-data     docker compose down -v + re-seed (fixes Postgres password drift)
 set -euo pipefail
 
 SKIP_INSTALL=0
 FULL_VERIFY=0
 SKIP_APPS=0
 SKIP_COMPOSE=0
+RESET_DATA=0
 
 for arg in "$@"; do
   case "$arg" in
@@ -24,8 +26,9 @@ for arg in "$@"; do
     --full-verify) FULL_VERIFY=1 ;;
     --skip-apps) SKIP_APPS=1 ;;
     --skip-compose) SKIP_COMPOSE=1 ;;
+    --reset-data) RESET_DATA=1 ;;
     -h|--help)
-      sed -n '2,16p' "$0"
+      sed -n '2,18p' "$0"
       exit 0
       ;;
     *)
@@ -168,6 +171,7 @@ apply_wsa_derived_env() {
   local db_name="${POSTGRES_DB:-wsa}"
 
   export WSA_ANALYTICS_BASE_URL="http://${WSA_HOST}:${WSA_ANALYTICS_PORT}"
+  export WSA_INGEST_BASE_URL="http://${WSA_HOST}:${WSA_INGEST_PORT}"
   export ADMINER_URL="http://${WSA_HOST}:${WSA_ADMINER_PORT}/"
   export VAULT_URI="http://${WSA_HOST}:${WSA_VAULT_PORT}"
   export KAFKA_BOOTSTRAP_SERVERS="${WSA_HOST}:${WSA_KAFKA_PORT}"
@@ -216,12 +220,84 @@ wait_compose_healthy() {
   done
 }
 
-port_in_use() {
-  local port="$1"
-  if have lsof; then
-    lsof -iTCP:"${port}" -sTCP:LISTEN >/dev/null 2>&1
-  else
+test_postgres_password() {
+  if [[ -z "${POSTGRES_PASSWORD:-}" ]]; then
     return 1
+  fi
+  docker compose --env-file .env exec -T \
+    -e "PGPASSWORD=${POSTGRES_PASSWORD}" \
+    postgres psql -U "${POSTGRES_USER:-wsa}" -d "${POSTGRES_DB:-wsa}" -c 'SELECT 1' >/dev/null 2>&1
+}
+
+start_compose_infra() {
+  step "Starting Compose infra (Postgres password from Vault)"
+  if [[ -z "${POSTGRES_PASSWORD:-}" ]]; then
+    echo "POSTGRES_PASSWORD is empty after vault-seed. Check .vault/postgres_password." >&2
+    exit 1
+  fi
+  export ADMINER_PASSWORD="${POSTGRES_PASSWORD}"
+  docker compose --env-file .env up -d
+  wait_compose_healthy
+}
+
+reset_compose_data_volumes() {
+  step "Recreating Compose volumes (Postgres password / --reset-data)"
+  echo "  This deletes local Postgres data."
+  docker compose --env-file .env down -v
+  bash "${SCRIPT_DIR}/vault-seed.sh"
+  load_env
+  start_compose_infra
+}
+
+ensure_postgres_password_aligned() {
+  if test_postgres_password; then
+    echo "  Postgres accepts Vault-backed password"
+    return
+  fi
+  echo "  Postgres password does not match volume (common after .vault/volume drift)."
+  reset_compose_data_volumes
+  if ! test_postgres_password; then
+    echo "Postgres still rejects POSTGRES_PASSWORD after volume recreate." >&2
+    exit 1
+  fi
+  echo "  Postgres accepts Vault-backed password after recreate"
+}
+
+stop_listening_ports() {
+  local port
+  for port in "$@"; do
+    if ! have lsof; then
+      continue
+    fi
+    local pids
+    pids="$(lsof -tiTCP:"${port}" -sTCP:LISTEN 2>/dev/null || true)"
+    if [[ -z "${pids}" ]]; then
+      continue
+    fi
+    echo "  Stopping process(es) on :${port}: ${pids}"
+    local pid
+    for pid in ${pids}; do
+      # Kill process group when possible so mvn parent does not keep jars locked.
+      kill -TERM -"${pid}" 2>/dev/null || kill -TERM "${pid}" 2>/dev/null || true
+    done
+    sleep 1
+    for pid in ${pids}; do
+      kill -KILL -"${pid}" 2>/dev/null || kill -KILL "${pid}" 2>/dev/null || true
+    done
+  done
+  # Also clear prior bootstrap PID files if present.
+  if compgen -G "target/bootstrap-*.pid" >/dev/null 2>&1; then
+    local pidfile
+    for pidfile in target/bootstrap-*.pid; do
+      [[ -f "${pidfile}" ]] || continue
+      local old
+      old="$(tr -d '[:space:]' <"${pidfile}" || true)"
+      if [[ -n "${old}" ]]; then
+        kill -TERM -"${old}" 2>/dev/null || kill -TERM "${old}" 2>/dev/null || true
+        kill -KILL -"${old}" 2>/dev/null || kill -KILL "${old}" 2>/dev/null || true
+      fi
+      rm -f "${pidfile}"
+    done
   fi
 }
 
@@ -238,6 +314,9 @@ start_app() {
     export VAULT_URI
     export ADMINER_URL
     export WSA_ANALYTICS_BASE_URL
+    export WSA_INGEST_BASE_URL
+    # Apps must read DB password from Vault (AppRole), not from process env leftovers.
+    unset SPRING_DATASOURCE_PASSWORD POSTGRES_PASSWORD ADMINER_PASSWORD || true
     mvn -pl "${module}" spring-boot:run
   ) >"${log}" 2>&1 &
   echo $! >"target/bootstrap-${module}.pid"
@@ -280,12 +359,21 @@ if [[ "${SKIP_COMPOSE}" -eq 0 ]]; then
   step "Seeding HashiCorp Vault (KV + AppRole)"
   bash "${SCRIPT_DIR}/vault-seed.sh"
   load_env
-  step "Starting Compose infra (Postgres password from Vault)"
-  docker compose --env-file .env up -d
-  wait_compose_healthy
+  if [[ "${RESET_DATA}" -eq 1 ]]; then
+    reset_compose_data_volumes
+  else
+    start_compose_infra
+    ensure_postgres_password_aligned
+  fi
 else
   echo "  Skipping compose (--skip-compose)"
+  load_env
 fi
+
+# Free app ports before Maven so clean/package is not blocked by locked jars,
+# and so we never leave a stale broken JVM from a previous run.
+step "Stopping processes on app ports (if any)"
+stop_listening_ports "${WSA_ANALYTICS_PORT}" "${WSA_INGEST_PORT}" "${WSA_CLIENT_PORT}"
 
 if [[ "${FULL_VERIFY}" -eq 1 ]]; then
   step "mvn clean verify (JaCoCo gate)"
@@ -299,26 +387,18 @@ echo "  Build OK"
 if [[ "${SKIP_APPS}" -eq 0 ]]; then
   step "Starting Spring apps (background)"
   mkdir -p target
-  # Analytics first on empty DB (Flyway owns shared schema); ingest uses a separate history table.
-  if ! port_in_use "${WSA_ANALYTICS_PORT}"; then
-    start_app analytics-service "${WSA_ANALYTICS_PORT}" target/bootstrap-analytics.log
-  else
-    echo "  Port ${WSA_ANALYTICS_PORT} already in use — leaving existing process"
-  fi
-  if ! port_in_use "${WSA_INGEST_PORT}"; then
-    start_app ingest-api "${WSA_INGEST_PORT}" target/bootstrap-ingest.log
-  else
-    echo "  Port ${WSA_INGEST_PORT} already in use — leaving existing process"
-  fi
-  if ! port_in_use "${WSA_CLIENT_PORT}"; then
-    start_app client "${WSA_CLIENT_PORT}" target/bootstrap-client.log
-  else
-    echo "  Port ${WSA_CLIENT_PORT} already in use — leaving existing process"
-  fi
+  stop_listening_ports "${WSA_ANALYTICS_PORT}" "${WSA_INGEST_PORT}" "${WSA_CLIENT_PORT}"
 
+  # Analytics first on empty DB (Flyway owns shared schema); wait before ingest.
+  start_app analytics-service "${WSA_ANALYTICS_PORT}" target/bootstrap-analytics.log
   wait_http_ok "${ANALYTICS_BASE}/actuator/health" "analytics-service"
+
+  start_app ingest-api "${WSA_INGEST_PORT}" target/bootstrap-ingest.log
   wait_http_ok "${INGEST_BASE}/actuator/health" "ingest-api"
+
+  start_app client "${WSA_CLIENT_PORT}" target/bootstrap-client.log
   wait_http_ok "${CLIENT_BASE}/actuator/health" "client"
+  wait_http_ok "${CLIENT_BASE}/" "client hub"
 
   step "Smoke test (ingest → Kafka → Postgres)"
   eid="evt-bootstrap-$(date +%Y%m%d%H%M%S)"

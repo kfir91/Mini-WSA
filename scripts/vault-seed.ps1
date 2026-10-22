@@ -116,7 +116,7 @@ Invoke-Vault @(
 
 $passFile = Join-Path $vaultDir "postgres_password"
 if (Test-Path -LiteralPath $passFile) {
-    $pgPass = (Get-Content -LiteralPath $passFile -Raw).Trim()
+    $pgPass = (Get-Content -LiteralPath $passFile -Raw).Trim().Trim("`0")
     Write-Host "  Reusing .vault/postgres_password" -ForegroundColor DarkYellow
 } else {
     $bytes = New-Object byte[] 24
@@ -124,9 +124,10 @@ if (Test-Path -LiteralPath $passFile) {
     $rng.GetBytes($bytes)
     $rng.Dispose()
     $pgPass = -join ($bytes | ForEach-Object { $_.ToString("x2") })
-    Set-Content -LiteralPath $passFile -Value $pgPass -NoNewline
     Write-Host "  Generated new postgres_password" -ForegroundColor DarkYellow
 }
+# Always rewrite without BOM/newline so Compose + Vault see the identical secret.
+[System.IO.File]::WriteAllText($passFile, $pgPass, (New-Object System.Text.UTF8Encoding $false))
 
 $sonarFile = Join-Path $vaultDir "sonar_token"
 $sonarToken = ""
@@ -141,19 +142,30 @@ Invoke-Vault @(
     "sonar_token=$sonarToken"
 )
 
-$roleId = (docker compose --env-file .env exec -T `
-    -e "VAULT_ADDR=http://127.0.0.1:8200" `
-    -e "VAULT_TOKEN=$rootToken" `
-    vault vault read -field=role_id auth/approle/role/wsa-local/role-id).Trim()
-if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($roleId)) {
+function Get-VaultField([string[]] $VaultArgs) {
+    $prevEap = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    $raw = docker compose --env-file .env exec -T `
+        -e "VAULT_ADDR=http://127.0.0.1:8200" `
+        -e "VAULT_TOKEN=$rootToken" `
+        vault vault @VaultArgs 2>&1 | Out-String
+    $exit = $LASTEXITCODE
+    $ErrorActionPreference = $prevEap
+    if ($exit -ne 0) {
+        throw "vault $($VaultArgs -join ' ') failed (exit $exit): $raw"
+    }
+    # Docker/PowerShell may append CR/LF or noise lines; keep the first non-empty token.
+    $line = ($raw -split "(`r`n|`n)" | Where-Object { $_.Trim() -ne "" } | Select-Object -First 1)
+    return $line.Trim()
+}
+
+$roleId = Get-VaultField @("read", "-field=role_id", "auth/approle/role/wsa-local/role-id")
+if ([string]::IsNullOrWhiteSpace($roleId)) {
     throw "Failed to read AppRole role_id."
 }
 
-$secretId = (docker compose --env-file .env exec -T `
-    -e "VAULT_ADDR=http://127.0.0.1:8200" `
-    -e "VAULT_TOKEN=$rootToken" `
-    vault vault write -field=secret_id -f auth/approle/role/wsa-local/secret-id).Trim()
-if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($secretId)) {
+$secretId = Get-VaultField @("write", "-field=secret_id", "-f", "auth/approle/role/wsa-local/secret-id")
+if ([string]::IsNullOrWhiteSpace($secretId)) {
     throw "Failed to create AppRole secret_id."
 }
 

@@ -79,9 +79,10 @@ if [[ -f "${PASS_FILE}" ]]; then
   echo "  Reusing .vault/postgres_password"
 else
   PG_PASS="$(openssl rand -hex 24 2>/dev/null || head -c 24 /dev/urandom | xxd -p -c 24)"
-  printf '%s' "${PG_PASS}" >"${PASS_FILE}"
   echo "  Generated new postgres_password"
 fi
+# Always rewrite without trailing newline so Compose + Vault see the identical secret.
+printf '%s' "${PG_PASS}" >"${PASS_FILE}"
 
 SONAR_TOKEN=""
 if [[ -f "${VAULT_DIR}/sonar_token" ]]; then
