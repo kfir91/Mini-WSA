@@ -217,6 +217,28 @@ class OutboxRelayServiceTest {
     }
 
     @Test
+    void badPayloadAtMaxAttemptsMarksFailed() {
+        IngestOutboxEntity row = IngestOutboxEntity.builder()
+                .id(81L)
+                .eventId("bad-json-max")
+                .payload("not-json")
+                .status(OutboxStatus.PENDING)
+                .createdAt(Instant.now())
+                .attemptCount(2)
+                .build();
+        when(outboxRepository.lockNextPending(anyInt())).thenReturn(List.of(row));
+        when(outboxRepository.findById(81L)).thenReturn(Optional.of(row));
+
+        relay.relayBatch();
+
+        ArgumentCaptor<IngestOutboxEntity> captor = ArgumentCaptor.forClass(IngestOutboxEntity.class);
+        verify(outboxRepository).save(captor.capture());
+        assertEquals(OutboxStatus.FAILED, captor.getValue().getStatus());
+        assertEquals(3, captor.getValue().getAttemptCount());
+        verify(producer, never()).publish(any());
+    }
+
+    @Test
     void longErrorMessageIsTruncated() throws Exception {
         SecurityEventMessage event = EventFixtures.validEvent("evt-long");
         event.setReceivedAt(Instant.parse("2026-05-20T14:32:11Z"));
