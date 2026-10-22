@@ -51,6 +51,20 @@ export type DemoAlertRule = {
   rule: Record<string, unknown>;
 };
 
+export type SeedEventsResult = {
+  requested: number;
+  accepted: number;
+  failed: number;
+  configId: number;
+  message: string;
+};
+
+export type SeedEventsParams = {
+  count: number;
+  configId?: number;
+  burstSize?: number;
+};
+
 export type ApiErrorBody = {
   code?: string;
   message?: string;

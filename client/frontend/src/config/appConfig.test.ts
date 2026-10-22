@@ -5,6 +5,8 @@ describe('appConfig', () => {
   it('exposes default demo configId and stats paths', () => {
     expect(appConfig.defaults.configId).toBe('14227');
     expect(appConfig.paths.statsSummary).toBe('/v1/stats/summary');
+    expect(appConfig.paths.hubSeedEvents).toBe('/hub/seed/events');
+    expect(appConfig.defaults.seedEventCount).toBe(100);
     expect(appConfig.routes.stats).toBe('/stats');
     expect(appConfig.routes.apis).toBe('/apis');
   });

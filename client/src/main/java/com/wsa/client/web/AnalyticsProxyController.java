@@ -1,7 +1,7 @@
 package com.wsa.client.web;
 
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
@@ -20,7 +20,6 @@ import java.util.Set;
  * Forwards {@code /v1/**} and {@code /demo/**} so hub/stats stay on one origin.
  */
 @RestController
-@RequiredArgsConstructor
 public class AnalyticsProxyController {
 
     private static final Set<String> HOP_BY_HOP = Set.of(
@@ -29,6 +28,10 @@ public class AnalyticsProxyController {
     );
 
     private final RestClient analyticsRestClient;
+
+    public AnalyticsProxyController(@Qualifier("analyticsRestClient") RestClient analyticsRestClient) {
+        this.analyticsRestClient = analyticsRestClient;
+    }
 
     @RequestMapping({"/v1/**", "/demo/**"})
     public ResponseEntity<byte[]> proxy(HttpServletRequest request) throws IOException {
