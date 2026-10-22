@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.MissingNode;
 import com.wsa.ingest.exception.IngestValidationException;
 import com.wsa.ingest.service.EventIngestService;
+import com.wsa.ingest.service.IngestStatusService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,11 +22,14 @@ class EventIngestControllerTest {
     @Mock
     private EventIngestService eventIngestService;
 
+    @Mock
+    private IngestStatusService ingestStatusService;
+
     private EventIngestController controller;
 
     @BeforeEach
     void setUp() {
-        controller = new EventIngestController(eventIngestService, new ObjectMapper());
+        controller = new EventIngestController(eventIngestService, ingestStatusService, new ObjectMapper());
     }
 
     @Test
