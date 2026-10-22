@@ -61,6 +61,7 @@ export const appConfig = {
     alertsDefine: '/v1/alerts/define',
     demoAlertsFire: '/demo/alerts/fire',
     hubSeedEvents: '/hub/seed/events',
+    hubEventStatusBase: '/hub/events',
   },
 
   defaults: {
@@ -137,6 +138,8 @@ export const apiLinks = {
   alertsDefine: () => appConfig.paths.alertsDefine,
   demoAlertsFire: () => appConfig.paths.demoAlertsFire,
   hubSeedEvents: () => appConfig.paths.hubSeedEvents,
+  hubEventStatus: (eventId: string) =>
+    `${appConfig.paths.hubEventStatusBase}/${encodeURIComponent(eventId)}/status`,
   alertRules: () => appConfig.paths.alertRules,
   adminerConnect: () => `${serviceOrigin('analytics')}${appConfig.paths.adminerGo}`,
   clientHub: () => `${serviceOrigin('client')}/`,

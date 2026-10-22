@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+import { IngestStatusCard } from '../components/IngestStatusCard';
 import { SeedEventsCard } from '../components/SeedEventsCard';
 import { ServiceCard } from '../components/ServiceCard';
 import { Card } from '../components/ui/Card';
@@ -68,6 +69,7 @@ export function OverviewPage() {
       </Card>
 
       <SeedEventsCard />
+      <IngestStatusCard />
     </section>
   );
 }
