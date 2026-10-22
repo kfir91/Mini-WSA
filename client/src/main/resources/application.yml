@@ -12,6 +12,7 @@ spring:
 wsa:
   client:
     analytics-base-url: ${WSA_ANALYTICS_BASE_URL:http://localhost:8080}
+    ingest-base-url: ${WSA_INGEST_BASE_URL:http://localhost:8081}
 
 management:
   endpoints:

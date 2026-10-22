@@ -9,23 +9,30 @@
     1. Clear stale docker-machine env
     2. Optionally install JDK 17 / Maven / Docker Desktop via winget
     3. Ensure Docker daemon is up
-    4. Use ASCII work dir if the checkout path is non-ASCII (OpenAPI/Maven)
+    4. Use ASCII work dir if the checkout path is non-ASCII (OpenAPI/Maven);
+       preserve .vault across robocopy so Postgres password stays stable
     5. Create .env, vault-seed, compose up with Vault-backed Postgres password
-    6. mvn clean install -DskipTests (or -FullVerify)
-    7. Start analytics / ingest / client (WSA_*_PORT from .env) with AppRole env
-    8. Smoke-check health + one ingest until eventId appears in analytics samples
+       (auto-recreate volume if password no longer matches)
+    6. Stop anything on app ports (avoids locked jars / stale broken JVMs)
+    7. mvn clean install -DskipTests (or -FullVerify)
+    8. Start analytics → wait healthy → ingest → client (AppRole env; DB password from Vault only)
+    9. Smoke-check health + one ingest until eventId appears in analytics samples
 
 .EXAMPLE
   .\scripts\bootstrap-windows.ps1
 
 .EXAMPLE
   .\scripts\bootstrap-windows.ps1 -SkipInstall -FullVerify
+
+.EXAMPLE
+  .\scripts\bootstrap-windows.ps1 -SkipInstall -ResetData
 #>
 param(
     [switch] $SkipInstall,
     [switch] $FullVerify,
     [switch] $SkipApps,
     [switch] $SkipCompose,
+    [switch] $ResetData,
     [string] $AsciiWorkDir = "C:\Temp\wsa-build"
 )
 
@@ -164,12 +171,22 @@ function Resolve-WorkRoot {
     Write-Host "  Git stays in the source folder; Maven/Compose run from the ASCII copy." -ForegroundColor DarkYellow
 
     New-Item -ItemType Directory -Force -Path $AsciiWorkDir | Out-Null
+    # Exclude .vault: /MIR would delete work-dir secrets when the source checkout
+    # has no .vault yet, which regenerates the Postgres password against an old volume.
     robocopy $sourceRoot $AsciiWorkDir /MIR /NFL /NDL /NJH /NJS /nc /ns /np `
-        /XD target .git .idea .vscode node_modules `
+        /XD target .git .idea .vscode node_modules .vault `
         /XF "*.iml" | Out-Null
     $rc = $LASTEXITCODE
     if ($rc -ge 8) {
         throw "robocopy failed with exit $rc"
+    }
+    # Seed work .vault from source once if the ASCII copy never had one.
+    $srcVault = Join-Path $sourceRoot ".vault"
+    $dstVault = Join-Path $AsciiWorkDir ".vault"
+    if ((Test-Path -LiteralPath $srcVault) -and -not (Test-Path -LiteralPath $dstVault)) {
+        New-Item -ItemType Directory -Force -Path $dstVault | Out-Null
+        robocopy $srcVault $dstVault /E /NFL /NDL /NJH /NJS /nc /ns /np | Out-Null
+        Write-Host "  Copied .vault from source checkout into ASCII work dir" -ForegroundColor DarkYellow
     }
     if (-not (Test-Path (Join-Path $AsciiWorkDir "pom.xml"))) {
         throw "ASCII work dir missing pom.xml after sync."
@@ -254,6 +271,7 @@ function Apply-WsaDerivedEnv {
     $env:WSA_VAULT_PORT = $vaultPort
 
     $env:WSA_ANALYTICS_BASE_URL = "http://${hostName}:${analyticsPort}"
+    $env:WSA_INGEST_BASE_URL = "http://${hostName}:${ingestPort}"
     $env:ADMINER_URL = "http://${hostName}:${adminerPort}/"
     $env:VAULT_URI = "http://${hostName}:${vaultPort}"
     $env:KAFKA_BOOTSTRAP_SERVERS = "${hostName}:${kafkaPort}"
@@ -296,6 +314,83 @@ function Wait-ComposeHealthy([int] $TimeoutSec = 180) {
     } while ($true)
 }
 
+function Test-PostgresPassword {
+    if ([string]::IsNullOrWhiteSpace($env:POSTGRES_PASSWORD)) { return $false }
+    $user = Get-WsaEnvOrDefault "POSTGRES_USER" "wsa"
+    $db = Get-WsaEnvOrDefault "POSTGRES_DB" "wsa"
+    $prevEap = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    docker compose --env-file .env exec -T `
+        -e "PGPASSWORD=$($env:POSTGRES_PASSWORD)" `
+        postgres psql -U $user -d $db -c "SELECT 1" 2>&1 | Out-Null
+    $ok = ($LASTEXITCODE -eq 0)
+    $ErrorActionPreference = $prevEap
+    return $ok
+}
+
+function Start-ComposeInfra {
+    Write-Step "Starting Compose infra (Postgres password from Vault)"
+    if ([string]::IsNullOrWhiteSpace($env:POSTGRES_PASSWORD)) {
+        throw "POSTGRES_PASSWORD is empty after vault-seed. Check .vault/postgres_password."
+    }
+    $env:ADMINER_PASSWORD = $env:POSTGRES_PASSWORD
+    docker compose --env-file .env up -d
+    if ($LASTEXITCODE -ne 0) {
+        throw "docker compose up failed."
+    }
+    Wait-ComposeHealthy
+}
+
+function Reset-ComposeDataVolumes {
+    Write-Step "Recreating Compose volumes (Postgres password / -ResetData)"
+    Write-Host "  This deletes local Postgres data." -ForegroundColor DarkYellow
+    docker compose --env-file .env down -v
+    if ($LASTEXITCODE -ne 0) {
+        throw "docker compose down -v failed."
+    }
+    & (Join-Path $PSScriptRoot "vault-seed.ps1") -RepoRoot (Get-Location).Path
+    if ($LASTEXITCODE -ne 0) { throw "vault-seed.ps1 failed after volume reset." }
+    Import-VaultRuntimeEnv (Get-Location).Path
+    Start-ComposeInfra
+}
+
+function Ensure-PostgresPasswordAligned {
+    if (Test-PostgresPassword) {
+        Write-Host "  Postgres accepts Vault-backed password" -ForegroundColor Green
+        return
+    }
+    Write-Host "  Postgres password does not match volume (common after .vault/volume drift)." -ForegroundColor DarkYellow
+    Reset-ComposeDataVolumes
+    if (-not (Test-PostgresPassword)) {
+        throw "Postgres still rejects POSTGRES_PASSWORD after volume recreate."
+    }
+    Write-Host "  Postgres accepts Vault-backed password after recreate" -ForegroundColor Green
+}
+
+function Stop-ListeningPorts([int[]] $Ports) {
+    $stopped = @{}
+    foreach ($port in $Ports) {
+        $listeners = @(Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue)
+        foreach ($conn in $listeners) {
+            $procId = $conn.OwningProcess
+            if (-not $procId -or $stopped.ContainsKey($procId)) { continue }
+            $proc = Get-Process -Id $procId -ErrorAction SilentlyContinue
+            $name = if ($proc) { $proc.ProcessName } else { "?" }
+            Write-Host "  Stopping $name (pid=$procId) on :$port (process tree)" -ForegroundColor DarkYellow
+            # /T kills child JVM under mvn/powershell so *-exec.jar is not left locked.
+            $prevEap = $ErrorActionPreference
+            $ErrorActionPreference = "Continue"
+            taskkill /PID $procId /T /F 2>&1 | Out-Null
+            $ErrorActionPreference = $prevEap
+            Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue
+            $stopped[$procId] = $true
+        }
+    }
+    if ($stopped.Count -gt 0) {
+        Start-Sleep -Seconds 2
+    }
+}
+
 function Start-AppProcess([string] $Module, [int] $Port, [string] $LogFile) {
     $work = (Get-Location).Path
     $envFile = Join-Path $work ".env"
@@ -321,6 +416,9 @@ function Start-AppProcess([string] $Module, [int] $Port, [string] $LogFile) {
     [void]$sb.AppendLine(('$env:VAULT_URI = ' + (& $q $env:VAULT_URI)))
     [void]$sb.AppendLine(('$env:ADMINER_URL = ' + (& $q $env:ADMINER_URL)))
     [void]$sb.AppendLine(('$env:WSA_ANALYTICS_BASE_URL = ' + (& $q $env:WSA_ANALYTICS_BASE_URL)))
+    [void]$sb.AppendLine(('$env:WSA_INGEST_BASE_URL = ' + (& $q $env:WSA_INGEST_BASE_URL)))
+    # Apps must read DB password from Vault (AppRole), not from process env leftovers.
+    [void]$sb.AppendLine('Remove-Item Env:SPRING_DATASOURCE_PASSWORD,Env:POSTGRES_PASSWORD,Env:ADMINER_PASSWORD -ErrorAction SilentlyContinue')
     [void]$sb.AppendLine(('mvn -pl ' + $Module + ' spring-boot:run *>&1 | Tee-Object -FilePath ' + (& $q $LogFile)))
     $utf8 = New-Object System.Text.UTF8Encoding $false
     [System.IO.File]::WriteAllText($launcher, $sb.ToString(), $utf8)
@@ -380,17 +478,21 @@ if (-not $SkipCompose) {
     & (Join-Path $PSScriptRoot "vault-seed.ps1") -RepoRoot $workRoot
     if ($LASTEXITCODE -ne 0) { throw "vault-seed.ps1 failed." }
     Import-VaultRuntimeEnv $workRoot
-
-    Write-Step "Starting Compose infra (Postgres password from Vault)"
-    docker compose --env-file .env up -d
-    if ($LASTEXITCODE -ne 0) {
-        throw "docker compose up failed."
+    if ($ResetData) {
+        Reset-ComposeDataVolumes
+    } else {
+        Start-ComposeInfra
+        Ensure-PostgresPasswordAligned
     }
-    Wait-ComposeHealthy
 } else {
     Write-Host "  Skipping compose (-SkipCompose)"
     Import-VaultRuntimeEnv $workRoot
 }
+
+# Free app ports before Maven so clean/package is not blocked by locked *-exec.jar files,
+# and so we never leave a stale broken JVM from a previous run.
+Write-Step "Stopping processes on app ports (if any)"
+Stop-ListeningPorts @($analyticsPort, $ingestPort, $clientPort)
 
 Write-Step $(if ($FullVerify) { "mvn clean verify (JaCoCo gate)" } else { "mvn clean install -DskipTests" })
 if ($FullVerify) {
@@ -406,29 +508,18 @@ Write-Host "  Build OK" -ForegroundColor Green
 if (-not $SkipApps) {
     Write-Step "Starting Spring apps (background)"
     New-Item -ItemType Directory -Force -Path "target" | Out-Null
-    foreach ($port in @($analyticsPort, $ingestPort, $clientPort)) {
-        $listening = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
-        if ($listening) {
-            Write-Host "  Port $port already in use - leaving existing process" -ForegroundColor DarkYellow
-        }
-    }
-    $ingestListening = Get-NetTCPConnection -LocalPort $ingestPort -State Listen -ErrorAction SilentlyContinue
-    $analyticsListening = Get-NetTCPConnection -LocalPort $analyticsPort -State Listen -ErrorAction SilentlyContinue
-    $clientListening = Get-NetTCPConnection -LocalPort $clientPort -State Listen -ErrorAction SilentlyContinue
-    # Analytics first on empty DB (Flyway owns shared schema); ingest uses a separate history table.
-    if (-not $analyticsListening) {
-        Start-AppProcess "analytics-service" $analyticsPort (Join-Path $workRoot "target\bootstrap-analytics.log")
-    }
-    if (-not $ingestListening) {
-        Start-AppProcess "ingest-api" $ingestPort (Join-Path $workRoot "target\bootstrap-ingest.log")
-    }
-    if (-not $clientListening) {
-        Start-AppProcess "client" $clientPort (Join-Path $workRoot "target\bootstrap-client.log")
-    }
+    Stop-ListeningPorts @($analyticsPort, $ingestPort, $clientPort)
 
-    Wait-HttpOk "$ingestBase/actuator/health" "ingest-api"
+    # Analytics first on empty DB (Flyway owns shared schema); wait before ingest.
+    Start-AppProcess "analytics-service" $analyticsPort (Join-Path $workRoot "target\bootstrap-analytics.log")
     Wait-HttpOk "$analyticsBase/actuator/health" "analytics-service"
+
+    Start-AppProcess "ingest-api" $ingestPort (Join-Path $workRoot "target\bootstrap-ingest.log")
+    Wait-HttpOk "$ingestBase/actuator/health" "ingest-api"
+
+    Start-AppProcess "client" $clientPort (Join-Path $workRoot "target\bootstrap-client.log")
     Wait-HttpOk "$clientBase/actuator/health" "client"
+    Wait-HttpOk "$clientBase/" "client hub"
 
     Write-Step "Smoke test (ingest -> Kafka -> Postgres)"
     $eid = "evt-bootstrap-$(Get-Date -Format 'yyyyMMddHHmmss')"

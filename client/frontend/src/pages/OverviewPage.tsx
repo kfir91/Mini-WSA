@@ -1,5 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+import { IngestStatusCard } from '../components/IngestStatusCard';
+import { SeedEventsCard } from '../components/SeedEventsCard';
 import { ServiceCard } from '../components/ServiceCard';
 import { Card } from '../components/ui/Card';
 import { ChipLink } from '../components/ui/ChipLink';
@@ -65,6 +67,9 @@ export function OverviewPage() {
           <ChipLink href={apiLinks.alertsEvaluate()}>{t('hub.chipAlertsEvaluate')}</ChipLink>
         </div>
       </Card>
+
+      <SeedEventsCard />
+      <IngestStatusCard />
     </section>
   );
 }

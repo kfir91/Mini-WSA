@@ -138,7 +138,7 @@ Browser calls to `/v1/**` and `/demo/**` are **proxied** by client → analytics
 
 ### Client UI (React SPA)
 
-Same-origin **React + TypeScript (Vite)** app owned by the **`client`** module. Hub covers service links, alerts, and rate-limit demos; Stats charts `GET /v1/stats/timeseries` and renders `GET /v1/stats/summary`.
+Same-origin **React + TypeScript (Vite)** app owned by the **`client`** module. Hub covers service links, alerts, rate-limit demos, and **seed demo events** (configurable count); Stats charts `GET /v1/stats/timeseries` and renders `GET /v1/stats/summary`.
 
 | | |
 |---|---|
@@ -146,11 +146,11 @@ Same-origin **React + TypeScript (Vite)** app owned by the **`client`** module. 
 | Source | [`client/frontend/`](client/frontend/) — see also [`client/frontend/README.md`](client/frontend/README.md) |
 | Build output | `client/src/main/resources/static/` (**generated** — gitignored; do not hand-edit) |
 | Maven | `frontend-maven-plugin` runs `yarn install` + `yarn build` on `generate-resources`. Skip with `-Dfrontend.skip=true` (property on `client/pom.xml`) when `static/` is already built |
-| Layers | Browser → React SPA + `AnalyticsProxyController` → analytics OpenAPI → services → Postgres |
-| Config | Ports/paths/defaults in [`appConfig.ts`](client/frontend/src/config/appConfig.ts); optional `VITE_WSA_HOST`, `VITE_WSA_*_PORT` |
+| Layers | Browser → React SPA + `AnalyticsProxyController` → analytics; `POST /hub/seed/events` → ingest-api |
+| Config | Ports/paths/defaults in [`appConfig.ts`](client/frontend/src/config/appConfig.ts); optional `VITE_WSA_HOST`, `VITE_WSA_*_PORT`; `WSA_INGEST_BASE_URL` for hub seed |
 | i18n | UI copy in [`en.json`](client/frontend/src/i18n/locales/en.json) via `react-i18next` |
 | Chart | `chart.js` / `react-chartjs-2` (npm) |
-| Dev | `cd client/frontend && yarn && yarn dev` (Vite proxies `/v1` + `/demo` → analytics; ports from `VITE_WSA_*`) |
+| Dev | `cd client/frontend && yarn && yarn dev` (Vite proxies `/v1` + `/demo` → analytics, `/hub` → client; ports from `VITE_WSA_*`) |
 | Constraints | Open via `:8084` (or Vite). Proxied stats/samples count toward analytics **100 req/IP/min** |
 
 Frontend layout: `api/` (HTTP) → `hooks/` → `pages/` + `components/`; Spring only serves the built SPA and proxies APIs.
@@ -169,7 +169,18 @@ Stats filters: optional `configId`, `interval` (`1m` / `5m` / `1h`), optional `f
 | 2. Relay | `OutboxRelayService` polls every ~1s (`wsa.outbox.poll-interval-ms`). It loads pending rows with `FOR UPDATE SKIP LOCKED`, then publishes each payload to Kafka **outside** any DB transaction. |
 | 3. Outcome | Success → `PUBLISHED`. Failure → bump `attempt_count`, stay `PENDING` until `max-attempts` (default 5) → `FAILED`. |
 
-**HTTP 201** means “durably accepted into the outbox,” not “already on Kafka” and not “already in analytics Postgres.” Duplicate `eventId` values are idempotent (unique constraint; ingest skips if already present). Backlog: Micrometer gauge `ingest_outbox_pending` on ingest actuator.
+**HTTP 201** means “durably accepted into the outbox,” not “already on Kafka” and not “already in analytics Postgres.” The 201 body is `IngestAcceptResponse` with per-`eventId` client status (usually `accepted`). Duplicate `eventId` values are idempotent (unique constraint; re-POST returns the **current** mapped status for that id). Backlog: Micrometer gauge `ingest_outbox_pending` on ingest actuator.
+
+**Client-visible status** (`GET /v1/events/{eventId}/status`, hub: `GET /hub/events/{eventId}/status`):
+
+| Client status | Outbox |
+|---|---|
+| `accepted` | `PENDING`, `attempt_count = 0` |
+| `progressing` | `PENDING`, `attempt_count > 0` |
+| `done` | `PUBLISHED` (Kafka ack) |
+| `failed` | `FAILED` |
+
+This is an outbox projection only — **not** analytics enrichment.
 
 ```text
   POST /v1/events/ingest
@@ -209,11 +220,15 @@ chmod +x scripts/*.sh generator/*.sh
 | `-FullVerify` | `--full-verify` | `mvn clean verify` (JaCoCo ≥95%) instead of `install -DskipTests` |
 | `-SkipApps` | `--skip-apps` | Build + infra only |
 | `-SkipCompose` | `--skip-compose` | Skip `docker compose up` |
+| `-ResetData` | `--reset-data` | `docker compose down -v` + re-seed Vault (wipes local Postgres; fixes password drift) |
 
 **Notes**
 
 - First Docker Desktop install may need a **Windows reboot**. Re-run with `-SkipInstall` once Docker is running.
-- On Windows, if the checkout path is non-ASCII (e.g. Hebrew), bootstrap syncs Maven/Compose work to `C:\Temp\wsa-build`. **Git stays in the original folder.** Prefer an ASCII path when you can (OpenAPI codegen is happier).
+- On Windows, if the checkout path is non-ASCII (e.g. Hebrew), bootstrap syncs Maven/Compose work to `C:\Temp\wsa-build`. **Git stays in the original folder.** Prefer an ASCII path when you can (OpenAPI codegen is happier). `.vault/` is preserved across that sync so the Postgres password stays aligned with the Compose volume.
+- Bootstrap loads `POSTGRES_PASSWORD` from `.vault/postgres_password` into the shell before `docker compose up`, verifies Postgres accepts it, and auto-recreates the volume if it does not (same effect as `-ResetData` when drift is detected).
+- Before build/start it stops whatever is listening on the app ports (avoids locked `*-exec.jar` and stale broken JVMs). Apps start in order: **analytics → ingest → client**.
+- App process env does **not** carry `SPRING_DATASOURCE_PASSWORD`; Spring reads the DB password from Vault via AppRole.
 - App logs: `target/bootstrap-analytics.log`, `target/bootstrap-ingest.log`, `target/bootstrap-client.log`.
 - Hub: http://localhost:8084/ after bootstrap (not repo-root `index.html` as a standalone page).
 - Optional demo load after bootstrap: `.\scripts\seed-demo-data.ps1` / `./scripts/seed-demo-data.sh`.
@@ -549,6 +564,8 @@ With infra plus **ingest-api** and **analytics-service** running (client optiona
 
 Default: **10,000** mixed events at ~100/s. Flags: `-SkipGenerator` / `-EventCount` (PowerShell), `--skip-generator` / `--event-count` (bash). Re-runs skip duplicate alert rules.
 
+From the hub UI (Overview): set **Event count** and click **Seed events** — calls `POST /hub/seed/events` on the client service (1–10,000), which batch-posts synthetic events to ingest-api.
+
 ### Alerts
 
 Alerts live in Postgres and survive restarts. `GET /v1/alerts/evaluate` without `alertId` evaluates every defined rule.
@@ -679,7 +696,6 @@ Refresh Sonar rows in [`QUALITY_REPORT.md`](QUALITY_REPORT.md) after a Sonar run
 **Platform**
 
 - Object storage (e.g. S3) for long-term retention of older enriched events.
-- Client-visible ingest statuses (`accepted` / `progressing` / `done`) on top of the outbox.
 - Broader pipeline ITs: client proxy in the loop, DLQ path, multi-event backlog / lag assertions (beyond today’s `EventFlowIT` happy-path + idempotent re-POST).
 
 **AI (on top of the pipeline, not instead of classify/score)**

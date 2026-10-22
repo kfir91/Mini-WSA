@@ -60,6 +60,8 @@ export const appConfig = {
     alertsEvaluate: '/v1/alerts/evaluate',
     alertsDefine: '/v1/alerts/define',
     demoAlertsFire: '/demo/alerts/fire',
+    hubSeedEvents: '/hub/seed/events',
+    hubEventStatusBase: '/hub/events',
   },
 
   defaults: {
@@ -72,6 +74,8 @@ export const appConfig = {
     probeTimeoutMs: 4_000,
     hammerMaxRequests: 250,
     hammerProgressEvery: 10,
+    seedEventCount: 100,
+    seedEventCountMax: 10_000,
   },
 
   healthTargets: ['client', 'ingest', 'analytics', 'adminer', 'kafkaUi'] as const,
@@ -133,6 +137,9 @@ export const apiLinks = {
   alertsEvaluate: () => appConfig.paths.alertsEvaluate,
   alertsDefine: () => appConfig.paths.alertsDefine,
   demoAlertsFire: () => appConfig.paths.demoAlertsFire,
+  hubSeedEvents: () => appConfig.paths.hubSeedEvents,
+  hubEventStatus: (eventId: string) =>
+    `${appConfig.paths.hubEventStatusBase}/${encodeURIComponent(eventId)}/status`,
   alertRules: () => appConfig.paths.alertRules,
   adminerConnect: () => `${serviceOrigin('analytics')}${appConfig.paths.adminerGo}`,
   clientHub: () => `${serviceOrigin('client')}/`,

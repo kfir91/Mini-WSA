@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.wsa.contracts.ErrorDetail;
 import com.wsa.contracts.ErrorReason;
 import com.wsa.contracts.SecurityEventMessage;
+import com.wsa.ingest.api.IngestAcceptItem;
 import com.wsa.ingest.entity.IngestOutboxEntity;
 import com.wsa.ingest.entity.OutboxStatus;
 import com.wsa.ingest.exception.ErrorDetails;
@@ -36,7 +37,7 @@ public class EventIngestService {
     private final ObjectMapper objectMapper;
 
     @Transactional
-    public void ingest(List<SecurityEventMessage> events) {
+    public List<IngestAcceptItem> ingest(List<SecurityEventMessage> events) {
         if (events == null || events.isEmpty()) {
             throw new IngestValidationException(List.of(
                     ErrorDetails.of(null, "body", ErrorReason.BODY_EMPTY)));
@@ -58,12 +59,18 @@ public class EventIngestService {
         }
 
         Instant receivedAt = Instant.now();
+        List<IngestAcceptItem> accepted = new ArrayList<>(events.size());
         for (SecurityEventMessage event : events) {
-            event.setReceivedAt(receivedAt);
-            if (outboxRepository.existsByEventId(event.getEventId())) {
+            var existing = outboxRepository.findByEventId(event.getEventId());
+            if (existing.isPresent()) {
                 log.debug("Outbox already has eventId={}, treating as idempotent accept", event.getEventId());
+                accepted.add(IngestAcceptItem.builder()
+                        .eventId(event.getEventId())
+                        .status(IngestStatusMapper.toClientStatus(existing.get()))
+                        .build());
                 continue;
             }
+            event.setReceivedAt(receivedAt);
             outboxRepository.save(IngestOutboxEntity.builder()
                     .eventId(event.getEventId())
                     .payload(toJson(event))
@@ -71,7 +78,12 @@ public class EventIngestService {
                     .createdAt(receivedAt)
                     .attemptCount(0)
                     .build());
+            accepted.add(IngestAcceptItem.builder()
+                    .eventId(event.getEventId())
+                    .status(IngestStatusMapper.forNewPending())
+                    .build());
         }
+        return accepted;
     }
 
     private String toJson(SecurityEventMessage event) {

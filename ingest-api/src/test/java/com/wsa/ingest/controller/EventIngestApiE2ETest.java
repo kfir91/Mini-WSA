@@ -29,6 +29,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -68,7 +69,9 @@ class EventIngestApiE2ETest {
         mockMvc.perform(post("/v1/events/ingest")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(EventFixtures.validJson()))
-                .andExpect(status().isCreated());
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.items[0].status").value("accepted"))
+                .andExpect(jsonPath("$.items[0].eventId").exists());
 
         verify(kafkaEventProducer, never()).publish(any());
         List<IngestOutboxEntity> rows = outboxRepository.findAll();
@@ -84,10 +87,37 @@ class EventIngestApiE2ETest {
         mockMvc.perform(post("/v1/events/ingest")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(ClasspathJson.load("fixtures/security-event-batch.json")))
-                .andExpect(status().isCreated());
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.items.length()").value(2));
 
         verify(kafkaEventProducer, never()).publish(any());
         assertEquals(2, outboxRepository.count());
+    }
+
+    @Test
+    void statusEndpointTracksOutboxLifecycle() throws Exception {
+        mockMvc.perform(post("/v1/events/ingest")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(EventFixtures.validJson()))
+                .andExpect(status().isCreated());
+
+        String eventId = outboxRepository.findAll().get(0).getEventId();
+        mockMvc.perform(get("/v1/events/" + eventId + "/status"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.eventId").value(eventId))
+                .andExpect(jsonPath("$.status").value("accepted"));
+
+        outboxRelayService.relayBatch();
+        mockMvc.perform(get("/v1/events/" + eventId + "/status"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("done"));
+    }
+
+    @Test
+    void statusUnknownEventReturns404() throws Exception {
+        mockMvc.perform(get("/v1/events/missing-evt/status"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
 
     @Test

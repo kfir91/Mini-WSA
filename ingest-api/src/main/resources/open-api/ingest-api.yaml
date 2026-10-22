@@ -81,6 +81,10 @@ paths:
       responses:
         '201':
           description: Durably accepted into the ingest outbox (will be relayed to Kafka)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestAcceptResponse'
         '400':
           description: Validation error
           content:
@@ -93,8 +97,78 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /v1/events/{eventId}/status:
+    get:
+      tags: [Events]
+      operationId: getEventStatus
+      summary: Client-visible ingest status for one eventId
+      description: |
+        Read projection of the transactional outbox (not analytics enrichment).
+        accepted = PENDING with no attempts; progressing = PENDING after a failed attempt;
+        done = PUBLISHED to Kafka; failed = outbox FAILED.
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Current outbox-backed status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestEventStatus'
+        '404':
+          description: Unknown eventId
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   schemas:
+    IngestClientStatus:
+      type: string
+      description: Client-facing ingest lifecycle on top of the outbox
+      enum: [accepted, progressing, done, failed]
+    IngestAcceptItem:
+      type: object
+      required: [eventId, status]
+      properties:
+        eventId:
+          type: string
+        status:
+          $ref: '#/components/schemas/IngestClientStatus'
+    IngestAcceptResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/IngestAcceptItem'
+    IngestEventStatus:
+      type: object
+      required: [eventId, status, attemptCount, createdAt]
+      properties:
+        eventId:
+          type: string
+        status:
+          $ref: '#/components/schemas/IngestClientStatus'
+        attemptCount:
+          type: integer
+          format: int32
+        createdAt:
+          type: string
+          format: date-time
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastError:
+          type: string
+          nullable: true
+
     AttackCategory:
       type: string
       enum: [INJECTION, XSS, PROTOCOL_VIOLATION, DATA_LEAKAGE, BOT, DOS, RATE_LIMIT]
