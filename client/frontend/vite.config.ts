@@ -42,6 +42,7 @@ export default defineConfig(({ mode }) => {
       proxy: {
         '/v1': analyticsOrigin,
         '/demo': analyticsOrigin,
+        '/hub': clientOrigin,
         '/actuator': clientOrigin,
       },
     },

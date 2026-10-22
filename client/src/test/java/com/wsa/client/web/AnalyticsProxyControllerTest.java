@@ -42,6 +42,8 @@ class AnalyticsProxyControllerTest {
     static void analyticsUrl(DynamicPropertyRegistry registry) {
         registry.add("wsa.client.analytics-base-url",
                 () -> ANALYTICS.url("/").toString().replaceAll("/$", ""));
+        // Seed bean needs an ingest URL even when these tests only hit the analytics proxy.
+        registry.add("wsa.client.ingest-base-url", () -> "http://127.0.0.1:9");
     }
 
     @AfterAll
