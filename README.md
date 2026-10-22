@@ -591,7 +591,7 @@ Both apps share Compose database `wsa` (same `SPRING_DATASOURCE_*`).
 | **ingest-api** | `ingest_outbox` only | `ingest_flyway_schema_history` |
 | **analytics-service** | `security_events`, `alert_definitions` (only writer of enriched events) | `flyway_schema_history` |
 
-Kafka decouples outbox relay from scoring. Poison / exhausted-retry messages go to `security-events.dlq` (DLQ publish waits for broker ack so the consumer does not advance without a durable DLQ write).
+Kafka decouples outbox relay from scoring. Poison / exhausted-retry messages go to `security-events.dlq` (analytics uses `ErrorHandlingDeserializer` so poison JSON becomes a `DeserializationException` → DLQ; DLQ publish waits for broker ack so the consumer does not advance without a durable DLQ write).
 
 ### Monitoring lag
 
@@ -625,7 +625,14 @@ Prefer **MockMvc API/E2E tests** (real Spring context + in-memory **H2** in Post
 
 Avoid duplicating the same scenario in both a thin controller unit test and an E2E test.
 
-**Cross-service event flow** (real Postgres + Kafka via Testcontainers) lives in module `e2e` as `EventFlowIT`: POST ingest → outbox `PUBLISHED` → Kafka → analytics samples/summary (+ idempotent re-POST). It is **not** part of default `mvn verify` (keeps the JaCoCo gate Docker-free).
+**Cross-service event flow** (real Postgres + Kafka via Testcontainers) lives in module `e2e` under Failsafe profile `-Pe2e`. It is **not** part of default `mvn verify` (keeps the JaCoCo gate Docker-free).
+
+| IT class | What it asserts |
+|---|---|
+| `EventFlowIT` | Happy path ingest → outbox `PUBLISHED` → samples/summary + poll-based idempotent re-POST |
+| `ClientProxyPipelineIT` | Client BFF in the loop: hub seed → proxied `/v1` summary/samples → hub status `done` |
+| `DlqPathIT` | Poison JSON → Kafka DLQ (+ headers); bad outbox payload → `FAILED` (no DLQ) |
+| `BacklogLagIT` | Multi-event batch: outbox pending → 0, `ingest_outbox_pending` → 0, Kafka lag → 0, samples catch-up |
 
 ```bash
 mvn -pl e2e -am verify -Pe2e
@@ -635,7 +642,7 @@ mvn -pl e2e -am verify -Pe2e
 
 | Requirement | Note |
 |---|---|
-| Docker | **Docker Desktop** (or compatible engine). Without Docker, `EventFlowIT` is skipped (`disabledWithoutDocker`). |
+| Docker | **Docker Desktop** (or compatible engine). Without Docker, pipeline ITs are skipped (`assumeTrue` Docker available). |
 | Windows | Leftover Docker Toolbox / `DOCKER_MACHINE_NAME` breaks Testcontainers — clear it (see [Prerequisites](#windows)) or use bootstrap. Failsafe pins `DOCKER_HOST=npipe:////./pipe/dockerDesktopLinuxEngine`. |
 | macOS / Linux | If needed: `DOCKER_HOST=unix:///var/run/docker.sock` (override the Windows pipe set in `e2e` Failsafe). |
 | Profile | Spring profile `e2e` — **never** `test` (analytics Kafka consumer is `@Profile("!test")`). |
@@ -696,13 +703,15 @@ Refresh Sonar rows in [`QUALITY_REPORT.md`](QUALITY_REPORT.md) after a Sonar run
 **Platform**
 
 - Object storage (e.g. S3) for long-term retention of older enriched events.
-- Broader pipeline ITs: client proxy in the loop, DLQ path, multi-event backlog / lag assertions (beyond today’s `EventFlowIT` happy-path + idempotent re-POST).
+- Broader pipeline ITs for rate-limit / alerts / timeseries (same `e2e` harness as client/DLQ/backlog suites).
 
-**AI (on top of the pipeline, not instead of classify/score)**
+**AI / RAG (analyst layer only — never on the ingest/enrich hot path)**
 
-Keep fixed category → attack type and the threat formula (fast, cheap, testable). Optional additions:
+Keep fixed category → attack type and the threat formula (fast, cheap, testable). Do **not** use RAG/LLM to set `threatScore`, overwrite category, or decide “malware vs not” — the wire event has no payload/hash/intel for that, and scoring must stay deterministic for tests.
 
-- Semantic search / “similar past events” for analysts.
-- LLM plain-language explanations (do not replace `threatScore`).
-- Natural-language queries mapped to summary / samples / timeseries.
-- Optional “looks unusual” flag for odd free-text — never overwrite category or score.
+Useful additions (after a samples / investigation UI exists; demo generator text is too canned for semantics until messages/paths vary more):
+
+1. **Similar past events** — embed a short fingerprint per enriched event (`category`, `attack_type`, `rule_name`, `path`, `action`, geo) and return top-K neighbors for an event the analyst opened. Classic RAG retrieval; strengthens triage, not scoring.
+2. **Alert / event explanation (grounded)** — when an alert fires or an event is opened, retrieve matching samples + a summary slice for that `configId`/`category`, then LLM-narrate *why it looks risky* with cited `eventId`s. Requires alert→samples drill-down (SQL) first; LLM only packages evidence.
+3. **Natural-language ask → existing APIs** — map questions like “INJECTION for config 14227 last hour” to `summary` / `timeseries` / `samples` (tool-calling). Prefer structured API/SQL results over free-form answers; vectors optional for few-shot examples of filters, not as the primary store.
+4. **Optional rule/playbook Q&A** — only if a small docs corpus is added (WAF rule notes, runbooks): RAG over that KB for “what does rule X mean / what to check.” Skip until docs exist.

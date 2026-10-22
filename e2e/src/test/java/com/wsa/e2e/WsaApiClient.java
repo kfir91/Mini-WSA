@@ -2,6 +2,7 @@ package com.wsa.e2e;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -14,7 +15,10 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -33,7 +37,7 @@ final class WsaApiClient {
 
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(10);
-    private static final Duration INGEST_TIMEOUT = Duration.ofSeconds(15);
+    private static final Duration INGEST_TIMEOUT = Duration.ofSeconds(30);
 
     private static final ObjectMapper MAPPER = new ObjectMapper().findAndRegisterModules();
     private static final HttpClient HTTP = HttpClient.newBuilder()
@@ -51,11 +55,16 @@ final class WsaApiClient {
     }
 
     HttpResponse<String> postIngest(String eventId) throws Exception {
-        ObjectNode event = (ObjectNode) MAPPER.readTree(classpathBytes(FIXTURE_EVENT));
-        event.put("eventId", eventId);
-        event.put("timestamp", Instant.now().toString());
-        event.put("configId", configId);
+        ObjectNode event = loadFixtureEvent(eventId);
         return postJson(ingestBase + PATH_INGEST, MAPPER.writeValueAsString(event));
+    }
+
+    HttpResponse<String> postIngestBatch(Collection<String> eventIds) throws Exception {
+        ArrayNode batch = MAPPER.createArrayNode();
+        for (String eventId : eventIds) {
+            batch.add(loadFixtureEvent(eventId));
+        }
+        return postJson(ingestBase + PATH_INGEST, MAPPER.writeValueAsString(batch));
     }
 
     long totalEvents() throws Exception {
@@ -65,22 +74,53 @@ final class WsaApiClient {
     }
 
     List<String> matchingSampleEventIds(String eventId) throws Exception {
-        String url = analyticsBase + PATH_SAMPLES
-                + "?configId=" + configId
-                + "&limit=" + SAMPLES_PAGE_SIZE
-                + "&offset=0";
-        HttpResponse<String> response = get(url);
-        assertEquals(HttpStatus.OK.value(), response.statusCode(), () -> "samples body=" + response.body());
-        JsonNode items = MAPPER.readTree(response.body()).path("items");
         List<String> matches = new ArrayList<>();
-        if (items.isArray()) {
-            for (JsonNode item : items) {
-                if (eventId.equals(item.path("eventId").asText())) {
-                    matches.add(eventId);
-                }
+        for (JsonNode item : sampleItems()) {
+            if (eventId.equals(item.path("eventId").asText())) {
+                matches.add(eventId);
             }
         }
         return matches;
+    }
+
+    Set<String> sampleEventIdsPresent(Collection<String> wanted) throws Exception {
+        Set<String> wantedSet = new LinkedHashSet<>(wanted);
+        Set<String> found = new LinkedHashSet<>();
+        for (JsonNode item : sampleItems()) {
+            String id = item.path("eventId").asText();
+            if (wantedSet.contains(id)) {
+                found.add(id);
+            }
+        }
+        return found;
+    }
+
+    List<JsonNode> sampleItems() throws Exception {
+        List<JsonNode> all = new ArrayList<>();
+        int offset = 0;
+        while (true) {
+            String url = analyticsBase + PATH_SAMPLES
+                    + "?configId=" + configId
+                    + "&limit=" + SAMPLES_PAGE_SIZE
+                    + "&offset=" + offset;
+            HttpResponse<String> response = get(url);
+            assertEquals(HttpStatus.OK.value(), response.statusCode(), () -> "samples body=" + response.body());
+            JsonNode items = MAPPER.readTree(response.body()).path("items");
+            if (!items.isArray() || items.isEmpty()) {
+                break;
+            }
+            for (JsonNode item : items) {
+                all.add(item);
+            }
+            if (items.size() < SAMPLES_PAGE_SIZE) {
+                break;
+            }
+            offset += SAMPLES_PAGE_SIZE;
+            if (offset > 10_000) {
+                break;
+            }
+        }
+        return all;
     }
 
     boolean isHealthyIngest() {
@@ -89,6 +129,14 @@ final class WsaApiClient {
 
     boolean isHealthyAnalytics() {
         return isHealthy(analyticsBase);
+    }
+
+    private ObjectNode loadFixtureEvent(String eventId) throws Exception {
+        ObjectNode event = (ObjectNode) MAPPER.readTree(classpathBytes(FIXTURE_EVENT));
+        event.put("eventId", eventId);
+        event.put("timestamp", Instant.now().toString());
+        event.put("configId", configId);
+        return event;
     }
 
     private boolean isHealthy(String base) {
