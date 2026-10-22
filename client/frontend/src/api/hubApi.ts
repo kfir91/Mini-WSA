@@ -1,6 +1,6 @@
 import { appConfig } from '../config/appConfig';
 import { requestJson } from './http';
-import type { SeedEventsParams, SeedEventsResult } from './types';
+import type { IngestEventStatus, SeedEventsParams, SeedEventsResult } from './types';
 
 /** Hub seed: client posts synthetic events through ingest-api. */
 export function seedEvents(params: SeedEventsParams): Promise<SeedEventsResult> {
@@ -13,4 +13,10 @@ export function seedEvents(params: SeedEventsParams): Promise<SeedEventsResult> 
       burstSize: params.burstSize,
     }),
   });
+}
+
+/** Hub status: client forwards to ingest-api outbox projection. */
+export function fetchIngestStatus(eventId: string): Promise<IngestEventStatus> {
+  const id = encodeURIComponent(eventId.trim());
+  return requestJson<IngestEventStatus>(`${appConfig.paths.hubEventStatusBase}/${id}/status`);
 }

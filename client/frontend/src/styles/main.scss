@@ -383,6 +383,33 @@ code {
   }
 }
 
+.status-chip {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  text-transform: lowercase;
+
+  &--accepted {
+    color: var(--muted);
+  }
+
+  &--progressing {
+    color: var(--text);
+  }
+
+  &--done {
+    color: var(--ok, #1b7f4e);
+  }
+
+  &--failed {
+    color: var(--danger, #b42318);
+  }
+}
+
 .check {
   display: flex;
   align-items: center;

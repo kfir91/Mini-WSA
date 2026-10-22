@@ -20,6 +20,7 @@
     "evaluateFailed": "Evaluate failed",
     "demoFireFailed": "Demo fire failed",
     "seedFailed": "Seed failed",
+    "statusFailed": "Status lookup failed",
     "hammerFailed": "Hammer failed",
     "client": "client"
   },
@@ -49,6 +50,12 @@
     "seedConfigId": "configId",
     "seedRun": "Seed events",
     "seedRunning": "Seeding…",
+    "statusTitle": "Ingest status",
+    "statusBody": "Outbox projection for one eventId: accepted → progressing → done (or failed).",
+    "statusEventId": "eventId",
+    "statusPoll": "Check status",
+    "statusPolling": "Checking…",
+    "statusAttempts": "attempts {{count}}",
     "chipSummary": "summary",
     "chipTimeseries": "timeseries {{interval}}",
     "chipAlertsEvaluate": "alerts evaluate",
@@ -128,7 +135,10 @@
     "seedInvalidCount": "Event count must be between {{min}} and {{max}}.",
     "seedInvalidConfigId": "configId must be a number.",
     "seedRunning": "Seeding {{count}} event(s) for configId={{configId}} via {{path}}…",
-    "seedResult": "accepted={{accepted}} failed={{failed}} configId={{configId}}"
+    "seedResult": "accepted={{accepted}} failed={{failed}} configId={{configId}}",
+    "statusInvalidEventId": "eventId is required.",
+    "statusRunning": "Polling {{path}} …",
+    "statusResult": "eventId={{eventId}} status={{status}} attempts={{attempts}}"
   },
   "services": {
     "client": "client",

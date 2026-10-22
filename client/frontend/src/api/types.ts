@@ -65,6 +65,17 @@ export type SeedEventsParams = {
   burstSize?: number;
 };
 
+export type IngestClientStatus = 'accepted' | 'progressing' | 'done' | 'failed';
+
+export type IngestEventStatus = {
+  eventId: string;
+  status: IngestClientStatus;
+  attemptCount: number;
+  createdAt: string;
+  publishedAt?: string | null;
+  lastError?: string | null;
+};
+
 export type ApiErrorBody = {
   code?: string;
   message?: string;
