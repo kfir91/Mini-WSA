@@ -63,7 +63,6 @@
         <!-- Align Sonar coverage % with JaCoCo for a few hand-written types we also skip there. -->
         <sonar.coverage.exclusions>
             **/*Application.java,
-            **/KafkaConsumerConfig.java,
             **/PostgresTimeseriesBucketQuery.java,
             **/GeneratorMain.java,
             **/IngestClient.java,
@@ -147,8 +146,7 @@
                             <exclude>com/wsa/ingest/api/Error*</exclude>
                             <exclude>**/*Application*</exclude>
                             <exclude>**/*MapperImpl*</exclude>
-                            <!-- Spring Kafka wiring + Postgres-only SQL + generator CLI I/O -->
-                            <exclude>**/KafkaConsumerConfig*</exclude>
+                            <!-- Postgres-only SQL + generator CLI I/O -->
                             <exclude>**/PostgresTimeseriesBucketQuery*</exclude>
                             <exclude>**/GeneratorMain*</exclude>
                             <exclude>**/IngestClient*</exclude>
